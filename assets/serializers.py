@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Department, Asset, MaintenanceRecord
+from .models import Department, Asset
 
 
 class DepartmentSerializer(serializers.ModelSerializer):
@@ -26,7 +26,3 @@ class AssetSerializer(serializers.ModelSerializer):
 #         fields = "__all__"
 
 
-class MaintenanceRecordSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = MaintenanceRecord
-        fields = "__all__"

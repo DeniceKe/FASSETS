@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Assets</h1>
+
+<form method="get" style="margin-bottom:12px;">
+  <input name="q" placeholder="Search by ID, name, description" value="{{ q }}" style="width:320px;">
+  <select name="category">
+    <option value="">All Categories</option>
+    {% for c in categories %}
+      <option value="{{ c.id }}" {% if category|stringformat:"s" == c.id|stringformat:"s" %}selected{% endif %}>
+        {{ c.name }}
+      </option>
+    {% endfor %}
+  </select>
+  <select name="status">
+    <option value="">All Status</option>
+    <option value="available" {% if status == "available" %}selected{% endif %}>Available</option>
+    <option value="allocated" {% if status == "allocated" %}selected{% endif %}>Allocated</option>
+    <option value="maintenance" {% if status == "maintenance" %}selected{% endif %}>Under Maintenance</option>
+    <option value="disposed" {% if status == "disposed" %}selected{% endif %}>Disposed</option>
+  </select>
+  <button type="submit">Filter</button>
+</form>
+
+<table border="1" cellpadding="6" cellspacing="0" style="width:100%; border-collapse:collapse;">
+  <thead>
+    <tr>
+      <th>Asset ID</th>
+      <th>Name</th>
+      <th>Category</th>
+      <th>Status</th>
+      <th>Condition</th>
+      <th>Location</th>
+      <th>Purchase Date</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for a in assets %}
+    <tr>
+      <td>{{ a.asset_id }}</td>
+      <td>{{ a.name }}</td>
+      <td>{{ a.category.name }}</td>
+      <td>{{ a.get_status_display }}</td>
+      <td>{{ a.get_condition_display }}</td>
+      <td>{{ a.current_location }}</td>
+      <td>{{ a.purchase_date }}</td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="7">No assets found.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Dashboard</h1>
+
+<ul>
+  <li>Total assets: {{ total_assets }}</li>
+  <li>Available: {{ available }}</li>
+  <li>Allocated: {{ allocated }}</li>
+  <li>Under maintenance: {{ maintenance }}</li>
+</ul>
+{% endblock %}

@@ -1,41 +1,50 @@
-from rest_framework import viewsets
-from rest_framework.permissions import IsAuthenticated
+from django.contrib.auth.decorators import login_required
+from django.db.models import Q
+from django.shortcuts import render
 
-from .models import Department, Asset, MaintenanceRecord
-from .serializers import (
-    DepartmentSerializer,
-    AssetSerializer,
-    MaintenanceRecordSerializer,
-)
+from .models import Asset, Category, Location
 
+@login_required
+def dashboard(request):
+    # simple starter dashboard
+    total_assets = Asset.objects.count()
+    available = Asset.objects.filter(status="available").count()
+    allocated = Asset.objects.filter(status="allocated").count()
+    maintenance = Asset.objects.filter(status="maintenance").count()
 
-
-
-class DepartmentViewSet(viewsets.ModelViewSet):
-    queryset = Department.objects.all().order_by("name")
-    serializer_class = DepartmentSerializer
-    permission_classes = [IsAuthenticated]
-
-
-# class AssetCategoryViewSet(viewsets.ModelViewSet):
-#     queryset = AssetCategory.objects.all().order_by("name")
-#     serializer_class = AssetCategorySerializer
-#     permission_classes = [IsAuthenticated]
+    return render(request, "dashboard.html", {
+        "total_assets": total_assets,
+        "available": available,
+        "allocated": allocated,
+        "maintenance": maintenance,
+    })
 
 
-class AssetViewSet(viewsets.ModelViewSet):
-    queryset = Asset.objects.all().order_by("-created_at")
-    serializer_class = AssetSerializer
-    permission_classes = [IsAuthenticated]
+@login_required
+def asset_list(request):
+    qs = Asset.objects.select_related("category", "current_location", "current_location__department")
 
+    # Department isolation (basic): non-superuser sees only own dept assets (if profile has dept)
+    if not request.user.is_superuser and getattr(request.user, "profile", None) and request.user.profile.department:
+        qs = qs.filter(current_location__department=request.user.profile.department)
 
-# class AssetAssignmentViewSet(viewsets.ModelViewSet):
-#     queryset = AssetAssignment.objects.all().order_by("-assigned_at")
-#     serializer_class = AssetAssignmentSerializer
-#     permission_classes = [IsAuthenticated]
+    q = request.GET.get("q", "").strip()
+    category = request.GET.get("category", "").strip()
+    status = request.GET.get("status", "").strip()
 
+    if q:
+        qs = qs.filter(Q(asset_id__icontains=q) | Q(name__icontains=q) | Q(description__icontains=q))
 
-class MaintenanceRecordViewSet(viewsets.ModelViewSet):
-    queryset = MaintenanceRecord.objects.all().order_by("-started_at")
-    serializer_class = MaintenanceRecordSerializer
-    permission_classes = [IsAuthenticated]
+    if category:
+        qs = qs.filter(category_id=category)
+
+    if status:
+        qs = qs.filter(status=status)
+
+    return render(request, "assets/list.html", {
+        "assets": qs.order_by("-created_at")[:200],
+        "categories": Category.objects.all().order_by("name"),
+        "q": q,
+        "category": category,
+        "status": status,
+    })

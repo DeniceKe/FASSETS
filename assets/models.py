@@ -1,155 +1,151 @@
+import uuid
 from django.conf import settings
 from django.db import models
-from django.core.exceptions import ValidationError
+from django.utils import timezone
+import datetime
+from accounts.models import Department
+
+CONDITION_CHOICES = [
+    ('new', 'New'),
+    ('excellent', 'Excellent'),
+    ('good', 'Good'),
+    ('fair', 'Fair'),
+    ('poor', 'Poor'),
+    ('unserviceable', 'Unserviceable'),
+]
+
+STATUS_CHOICES = [
+    ('available', 'Available'),
+    ('allocated', 'Allocated'),
+    ('maintenance', 'Under Maintenance'),
+    ('disposed', 'Disposed'),
+]
+
+ROOM_TYPE_CHOICES = [
+    ('office', 'Office'),
+    ('lab', 'Laboratory'),
+    ('storage', 'Storage'),
+]
 
 
-# =========================
-# Department
-# =========================
-class Department(models.Model):
-    name = models.CharField(max_length=120, unique=True)
+class Location(models.Model):
+    department = models.ForeignKey(Department, on_delete=models.PROTECT, related_name="locations")
+    building = models.CharField(max_length=100)
+    floor = models.CharField(max_length=20, blank=True)
+    room = models.CharField(max_length=20)
+    room_type = models.CharField(max_length=20, choices=ROOM_TYPE_CHOICES)
 
-    def __str__(self):
+    class Meta:
+        unique_together = ('department', 'building', 'floor', 'room')
+
+    def __str__(self) -> str:
+        floor = f", Floor {self.floor}" if self.floor else ""
+        return f"{self.department.code} - {self.building}{floor} - {self.room}"
+
+
+class Category(models.Model):
+    name = models.CharField(max_length=100)
+    code = models.CharField(max_length=10)
+    depreciation_years = models.PositiveIntegerField(default=5)
+    parent = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL, related_name='children')
+
+    class Meta:
+        unique_together = ('code', 'name')
+
+    def __str__(self) -> str:
+        return f"{self.code} - {self.name}"
+
+
+class Supplier(models.Model):
+    name = models.CharField(max_length=200, unique=True)
+    email = models.EmailField(blank=True)
+    phone = models.CharField(max_length=50, blank=True)
+    address = models.TextField(blank=True)
+
+    def __str__(self) -> str:
         return self.name
 
 
+def asset_upload_path(instance, filename):
+    return f"assets/{instance.asset.asset_id}/{filename}"
 
 
-# =========================
-# Asset
-# =========================
 class Asset(models.Model):
-    STATUS_CHOICES = [
-        ("AVAILABLE", "Available"),
-        ("ASSIGNED", "Assigned"),
-        ("MAINTENANCE", "Maintenance"),
-        ("LOST", "Lost"),
-        ("DISPOSED", "Disposed"),
-    ]
-
-    asset_tag = models.CharField(
-        max_length=50,
-        unique=True,
-        help_text="Unique asset identification code",
-        auto_created=True,
-        
-    )
-    
+    asset_id = models.CharField(max_length=20, unique=True, blank=True)
     name = models.CharField(max_length=200)
+    category = models.ForeignKey(Category, on_delete=models.PROTECT, related_name="assets", default=1)
+    description = models.TextField(blank=True)
 
-    # category = models.ForeignKey(
-    #     AssetCategory,
-    #     on_delete=models.PROTECT,
-    #     related_name="assets"
-    # )
+    purchase_date = models.DateField(default=datetime.datetime.now)
+    purchase_cost = models.DecimalField(max_digits=12, decimal_places=2)
+    supplier = models.ForeignKey(Supplier, on_delete=models.SET_NULL, null=True, blank=True, related_name="assets")
 
-    department = models.ForeignKey(
-        Department,
-        on_delete=models.PROTECT,
-        related_name="assets"
-    )
+    current_location = models.ForeignKey(Location, on_delete=models.PROTECT, related_name="assets")
+    condition = models.CharField(max_length=20, choices=CONDITION_CHOICES, default='good')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='available')
 
-    status = models.CharField(
-        max_length=20,
-        choices=STATUS_CHOICES,
-        default="AVAILABLE"
-    )
-    
-    # assignment = models.CharField(max_length=200, blank=True, null=True)
-    # def clean(self):
-    #     if not self.pk and self.asset.status != "AVAILABLE":
-    #         raise ValidationError("Asset is not available for assignment.")
+    warranty_expiry = models.DateField(null=True, blank=True)
+    serial_number = models.CharField(max_length=100, blank=True)
 
-    # def save(self, *args, **kwargs):
-    #     self.clean()
+    barcode = models.CharField(max_length=100, unique=True, blank=True)
+    qr_code = models.ImageField(upload_to='qr_codes/', blank=True)
 
-    #     if not self.pk:
-    #         self.asset.status = "ASSIGNED"
-    #         self.asset.save(update_fields=["status"])
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="assets_created", default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
-    #     if self.pk and self.returned_at:
-    #         self.asset.status = "AVAILABLE"
-    #         self.asset.save(update_fields=["status"])
+    disposed_at = models.DateTimeField(null=True, blank=True)
 
-    #     super().save(*args, **kwargs)
+    def __str__(self) -> str:
+        return f"{self.asset_id} - {self.name}"
 
-    # def __str__(self):
-    #     return f"{self.asset} → {self.assigned_to}"
-    
+    @property
+    def department(self):
+        return self.current_location.department
+
+
+class AssetImage(models.Model):
+    asset = models.ForeignKey(Asset, on_delete=models.CASCADE, related_name="images")
+    image = models.ImageField(upload_to=asset_upload_path)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self) -> str:
+        return f"Image for {self.asset.asset_id}"
+
+
+class AssetDocument(models.Model):
+    asset = models.ForeignKey(Asset, on_delete=models.CASCADE, related_name="documents")
+    title = models.CharField(max_length=200)
+    file = models.FileField(upload_to=asset_upload_path)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self) -> str:
+        return f"Doc {self.title} for {self.asset.asset_id}"
+
+
+class AssetMovement(models.Model):
+    asset = models.ForeignKey(Asset, on_delete=models.CASCADE, related_name="movements")
+    from_location = models.ForeignKey(Location, on_delete=models.PROTECT, related_name="movements_out")
+    to_location = models.ForeignKey(Location, on_delete=models.PROTECT, related_name="movements_in")
+    moved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="movements_made")
+    moved_at = models.DateTimeField(auto_now_add=True)
+    notes = models.TextField(blank=True)
+
+    def __str__(self) -> str:
+        return f"{self.asset.asset_id}: {self.from_location} -> {self.to_location}"
+
+
+class DepreciationRecord(models.Model):
+    asset = models.ForeignKey(Asset, on_delete=models.CASCADE, related_name="depreciation_records")
+    year = models.PositiveIntegerField()
+    depreciation_amount = models.DecimalField(max_digits=12, decimal_places=2)
+    accumulated_depreciation = models.DecimalField(max_digits=12, decimal_places=2)
+    net_book_value = models.DecimalField(max_digits=12, decimal_places=2)
     created_at = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
-        return f"{self.asset_tag} - {self.name}"
+    class Meta:
+        unique_together = ('asset', 'year')
+        ordering = ['year']
 
-
-# =========================
-# Asset Assignment
-# =========================
-# class AssetAssignment(models.Model):
-#     asset = models.ForeignKey(
-#         Asset,
-#         on_delete=models.PROTECT,
-#         related_name="assignments"
-#     )
-
-#     assigned_to = models.ForeignKey(
-#         settings.AUTH_USER_MODEL,
-#         on_delete=models.PROTECT,
-#         related_name="assigned_assets"
-#     )
-
-#     assigned_by = models.ForeignKey(
-#         settings.AUTH_USER_MODEL,
-#         on_delete=models.PROTECT,
-#         related_name="issued_assets"
-#     )
-
-#     assigned_at = models.DateTimeField(auto_now_add=True)
-#     returned_at = models.DateTimeField(blank=True, null=True)
-
-
-
-
-# =========================
-# Maintenance Record
-# =========================
-class MaintenanceRecord(models.Model):
-    asset = models.ForeignKey(
-        Asset,
-        on_delete=models.PROTECT,
-        related_name="maintenance_records"
-    )
-
-    reported_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.PROTECT
-    )
-
-    issue = models.CharField(max_length=255)
-    started_at = models.DateTimeField(auto_now_add=True)
-    resolved_at = models.DateTimeField(blank=True, null=True)
-
-    def save(self, *args, **kwargs):
-        if not self.pk:
-            self.asset.status = "MAINTENANCE"
-            self.asset.save(update_fields=["status"])
-
-        if self.pk and self.resolved_at:
-            self.asset.status = "AVAILABLE"
-            self.asset.save(update_fields=["status"])
-
-        super().save(*args, **kwargs)
-
-    def __str__(self):
-        return f"Maintenance - {self.asset.asset_tag}"
-
-
-
-
-        
-  
-
-
-
-
-
+    def __str__(self) -> str:
+        return f"{self.asset.asset_id} - {self.year}"
