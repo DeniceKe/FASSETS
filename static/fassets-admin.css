@@ -1,0 +1,200 @@
+:root {
+  --fassets-admin-bg: #edf4ff;
+  --fassets-admin-surface: #ffffff;
+  --fassets-admin-ink: #132238;
+  --fassets-admin-muted: #64748b;
+  --fassets-admin-line: rgba(29, 78, 216, 0.14);
+  --fassets-admin-brand: #1d4ed8;
+  --fassets-admin-brand-deep: #173ea6;
+  --fassets-admin-shadow: 0 22px 48px rgba(22, 48, 101, 0.12);
+  --fassets-admin-radius: 24px;
+}
+
+body {
+  background:
+    radial-gradient(circle at top left, rgba(59, 130, 246, 0.16), transparent 22%),
+    linear-gradient(180deg, #ffffff 0%, var(--fassets-admin-bg) 100%);
+  color: var(--fassets-admin-ink);
+}
+
+#header {
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--fassets-admin-ink);
+  border-bottom: 1px solid var(--fassets-admin-line);
+  box-shadow: var(--fassets-admin-shadow);
+}
+
+#branding h1,
+#branding h1 a {
+  color: var(--fassets-admin-ink);
+}
+
+.fassets-branding {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.fassets-brand-mark {
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, var(--fassets-admin-brand), var(--fassets-admin-brand-deep));
+  color: #fff;
+  font-weight: 700;
+}
+
+.fassets-brand-subtitle {
+  margin: 4px 0 0;
+  color: var(--fassets-admin-muted);
+  font-size: 0.92rem;
+}
+
+.fassets-admin-links {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.fassets-admin-links a,
+.fassets-cta,
+.fassets-model-actions a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--fassets-admin-line);
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--fassets-admin-ink);
+  text-decoration: none;
+}
+
+.fassets-admin-links a:hover,
+.fassets-cta:hover,
+.fassets-model-actions a:hover {
+  border-color: rgba(29, 78, 216, 0.28);
+  background: rgba(29, 78, 216, 0.08);
+}
+
+#content {
+  padding: 28px 24px;
+}
+
+.fassets-admin-hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: center;
+  padding: 28px;
+  margin-bottom: 24px;
+  border-radius: calc(var(--fassets-admin-radius) + 4px);
+  background: linear-gradient(135deg, var(--fassets-admin-brand), var(--fassets-admin-brand-deep));
+  color: #fff;
+  box-shadow: var(--fassets-admin-shadow);
+}
+
+.fassets-admin-hero p,
+.fassets-admin-hero h2 {
+  color: #fff;
+  margin-top: 0;
+}
+
+.fassets-eyebrow {
+  margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.8rem;
+  opacity: 0.78;
+}
+
+.fassets-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.fassets-cta {
+  background: #fff;
+  color: var(--fassets-admin-brand-deep);
+  border-color: transparent;
+}
+
+.fassets-cta.secondary {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.24);
+}
+
+.fassets-admin-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
+.fassets-admin-card {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--fassets-admin-line);
+  border-radius: var(--fassets-admin-radius);
+  padding: 22px;
+  box-shadow: var(--fassets-admin-shadow);
+}
+
+.fassets-admin-card h3 {
+  margin: 0;
+  color: var(--fassets-admin-ink);
+}
+
+.fassets-model-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.fassets-model-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  padding: 16px;
+  border-radius: 18px;
+  background: #fff;
+  border: 1px solid var(--fassets-admin-line);
+}
+
+.fassets-model-row p {
+  margin: 6px 0 0;
+  color: var(--fassets-admin-muted);
+}
+
+.fassets-model-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+div.breadcrumbs {
+  background: transparent;
+  color: var(--fassets-admin-muted);
+  padding: 14px 24px 0;
+}
+
+div.breadcrumbs a {
+  color: var(--fassets-admin-brand-deep);
+}
+
+.module caption,
+.module h2 {
+  background: linear-gradient(135deg, var(--fassets-admin-brand), var(--fassets-admin-brand-deep));
+}
+
+@media (max-width: 900px) {
+  .fassets-admin-hero,
+  .fassets-model-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

@@ -1,19 +1,14 @@
 from django.core.management.base import BaseCommand
-from django.contrib.auth.models import Group
 
-GROUPS = [
-    "system_admin",
-    "lecturer_staff",
-    "technician",
-    "chair_department",
-    "dean",
-    "auditor",
-]
+from accounts.roles import bootstrap_role_groups
 
 class Command(BaseCommand):
-    help = "Create default role groups"
+    help = "Create default proposal role groups"
 
     def handle(self, *args, **options):
-        for name in GROUPS:
-            Group.objects.get_or_create(name=name)
-        self.stdout.write(self.style.SUCCESS("Default role groups created/verified."))
+        groups = bootstrap_role_groups()
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"Default role groups created/verified: {', '.join(group.name for group in groups.values())}."
+            )
+        )

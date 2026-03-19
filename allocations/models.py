@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 
@@ -33,3 +34,43 @@ class Allocation(models.Model):
 
     def __str__(self) -> str:
         return f"{self.asset.asset_id} -> {self.allocated_to or self.allocated_to_lab}"
+
+    def clean(self):
+        super().clean()
+
+        if bool(self.allocated_to) == bool(self.allocated_to_lab):
+            raise ValidationError("Allocate the asset to exactly one recipient: a user or a laboratory.")
+
+        if self.expected_return_date and self.allocation_date and self.expected_return_date < self.allocation_date:
+            raise ValidationError("Expected return date cannot be earlier than the allocation date.")
+
+        active_statuses = {"active", "overdue"}
+        if self.status in active_statuses and self.actual_return_date:
+            self.status = "returned"
+
+        if self.status == "returned" and not self.actual_return_date:
+            self.actual_return_date = timezone.localdate()
+
+        conflicting_allocations = Allocation.objects.filter(asset=self.asset, status__in=active_statuses)
+        if self.pk:
+            conflicting_allocations = conflicting_allocations.exclude(pk=self.pk)
+
+        if self.status in active_statuses and conflicting_allocations.exists():
+            raise ValidationError("This asset already has an active allocation.")
+
+        if self.pk is None and self.asset.status != "available":
+            raise ValidationError("Only available assets can be allocated.")
+
+    def save(self, *args, **kwargs):
+        if self.status == "active" and self.expected_return_date < timezone.localdate():
+            self.status = "overdue"
+
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+        active_exists = self.asset.allocations.filter(status__in=["active", "overdue"]).exclude(pk=self.pk).exists()
+        if self.status in {"active", "overdue"}:
+            self.asset.status = "allocated"
+        elif self.asset.status == "allocated" and not active_exists:
+            self.asset.status = "available"
+        self.asset.save(update_fields=["status", "updated_at"])

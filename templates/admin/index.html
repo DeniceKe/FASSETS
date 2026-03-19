@@ -1,0 +1,55 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+  <div class="fassets-admin-hero">
+    <div>
+      <p class="fassets-eyebrow">Administrative Control Center</p>
+      <h2>Manage users, assets, allocations, maintenance, and supporting records from one place.</h2>
+      <p>This admin workspace keeps the Django admin power, but presents it through a clearer and more branded FASSETS interface.</p>
+    </div>
+    <div class="fassets-hero-actions">
+      <a class="fassets-cta" href="{% url 'assets:dashboard' %}">Open User Dashboard</a>
+      <a class="fassets-cta secondary" href="{% url 'assets:about' %}">Read About FASSETS</a>
+    </div>
+  </div>
+
+  {% if app_list %}
+    <div class="fassets-admin-grid">
+      {% for app in app_list %}
+        <section class="fassets-admin-card">
+          <div class="fassets-admin-card-head">
+            <div>
+              <p class="fassets-eyebrow">{{ app.app_label }}</p>
+              <h3>{{ app.name }}</h3>
+            </div>
+          </div>
+          <div class="fassets-model-list">
+            {% for model in app.models %}
+              <div class="fassets-model-row">
+                <div>
+                  <strong>{{ model.name }}</strong>
+                  <p>
+                    {% if model.admin_url %}Open records and manage entries.{% else %}You do not have permission to view this model.{% endif %}
+                  </p>
+                </div>
+                <div class="fassets-model-actions">
+                  {% if model.admin_url %}
+                    <a href="{{ model.admin_url }}">View</a>
+                  {% endif %}
+                  {% if model.add_url %}
+                    <a href="{{ model.add_url }}">Add</a>
+                  {% endif %}
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        </section>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="fassets-admin-card">
+      <h3>No admin modules available</h3>
+      <p>Your account does not currently have access to admin-managed models.</p>
+    </div>
+  {% endif %}
+{% endblock %}

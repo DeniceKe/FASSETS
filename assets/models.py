@@ -87,7 +87,7 @@ class Asset(models.Model):
     warranty_expiry = models.DateField(null=True, blank=True)
     serial_number = models.CharField(max_length=100, blank=True)
 
-    barcode = models.CharField(max_length=100, unique=True, blank=True)
+    barcode = models.CharField(max_length=100, unique=True, blank=True, null=True)
     qr_code = models.ImageField(upload_to='qr_codes/', blank=True)
 
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="assets_created", default=1)

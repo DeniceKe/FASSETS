@@ -26,6 +26,10 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 
+admin.site.site_header = "FASSETS Administration"
+admin.site.site_title = "FASSETS Admin"
+admin.site.index_title = "Administrative Control Center"
+
 urlpatterns = [
     path('admin/', admin.site.urls),
 

@@ -34,7 +34,7 @@ SECRET_KEY = 'django-insecure-=$n6%gc+shi-7*ya+vcdoj^2-el7$&l1colc#se(77($l=0-eu
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["localhost", "127.0.0.1", "testserver"]
 
 
 # Application definition
@@ -46,9 +46,10 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    
+
     'assets',
     'rest_framework',
+    'django_filters',
     'api',
     'accounts',
     'allocations',
@@ -169,5 +170,3 @@ LOGOUT_REDIRECT_URL = '/accounts/login/'
 
 # Default file storage settings
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-

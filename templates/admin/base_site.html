@@ -1,0 +1,27 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block extrastyle %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'fassets-admin.css' %}">
+{% endblock %}
+
+{% block title %}{{ title }} | FASSETS Admin{% endblock %}
+
+{% block branding %}
+  <div class="fassets-branding">
+    <div class="fassets-brand-mark">FS</div>
+    <div>
+      <h1 id="site-name"><a href="{% url 'admin:index' %}">FASSETS Administration</a></h1>
+      <p class="fassets-brand-subtitle">Faculty of Science Asset Management Control Center</p>
+    </div>
+  </div>
+{% endblock %}
+
+{% block nav-global %}
+  <div class="fassets-admin-links">
+    <a href="{% url 'assets:about' %}">About</a>
+    <a href="{% url 'assets:dashboard' %}">User Dashboard</a>
+    <a href="{% url 'assets:asset_list' %}">Inventory</a>
+  </div>
+{% endblock %}
