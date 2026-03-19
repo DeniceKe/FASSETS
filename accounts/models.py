@@ -16,6 +16,14 @@ ROLE_CHOICES = [
     (ROLE_LAB_TECHNICIAN, "Lab Technician"),
 ]
 
+USER_TYPE_STUDENT = "student"
+USER_TYPE_STAFF = "staff"
+
+USER_TYPE_CHOICES = [
+    (USER_TYPE_STUDENT, "Student"),
+    (USER_TYPE_STAFF, "Staff"),
+]
+
 
 class Faculty(models.Model):
     name = models.CharField(max_length=120, unique=True)
@@ -36,6 +44,9 @@ class Department(models.Model):
 class Profile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="profile")
     employee_id = models.CharField(max_length=50, blank=True)
+    registration_number = models.CharField(max_length=50, blank=True)
+    phone_number = models.CharField(max_length=30, blank=True)
+    user_type = models.CharField(max_length=20, choices=USER_TYPE_CHOICES, blank=True)
     department = models.ForeignKey(Department, on_delete=models.SET_NULL, null=True, blank=True)
     role = models.CharField(max_length=30, choices=ROLE_CHOICES, blank=True)
 

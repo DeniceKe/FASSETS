@@ -1,0 +1,101 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+  <section class="fassets-admin-dashboard">
+    <div class="fassets-admin-hero">
+      <div>
+        <p class="fassets-eyebrow">Inventory Control</p>
+        <h2>Browse and manage registered assets inside the admin workspace.</h2>
+        <p>This inventory view is available only after admin login and stays inside the FASSETS administration environment.</p>
+      </div>
+      <div class="fassets-hero-actions">
+        <a class="fassets-cta" href="{% url 'admin:assets_asset_add' %}">Add Asset</a>
+        <a class="fassets-cta secondary" href="{% url 'admin:index' %}">Back To Admin Home</a>
+      </div>
+    </div>
+
+    <section class="fassets-admin-card">
+      <div class="fassets-card-head">
+        <div>
+          <p class="fassets-eyebrow">Asset Search</p>
+          <h3>{{ total_results }} result{{ total_results|pluralize }}</h3>
+        </div>
+      </div>
+
+      <form method="get" class="fassets-inventory-filters">
+        <div class="fassets-filter-field">
+          <label for="inventory-search">Search</label>
+          <input id="inventory-search" name="q" placeholder="Search by ID, name, or description" value="{{ q }}">
+        </div>
+        <div class="fassets-filter-field">
+          <label for="inventory-category">Category</label>
+          <select id="inventory-category" name="category">
+            <option value="">All Categories</option>
+            {% for c in categories %}
+              <option value="{{ c.id }}" {% if category|stringformat:"s" == c.id|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="fassets-filter-field">
+          <label for="inventory-status">Status</label>
+          <select id="inventory-status" name="status">
+            <option value="">All Status</option>
+            <option value="available" {% if status == "available" %}selected{% endif %}>Available</option>
+            <option value="allocated" {% if status == "allocated" %}selected{% endif %}>Allocated</option>
+            <option value="maintenance" {% if status == "maintenance" %}selected{% endif %}>Under Maintenance</option>
+            <option value="disposed" {% if status == "disposed" %}selected{% endif %}>Disposed</option>
+          </select>
+        </div>
+        <div class="fassets-filter-actions">
+          <button type="submit">Apply Filters</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="fassets-admin-card">
+      {% if assets %}
+        <div class="fassets-admin-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Asset</th>
+                <th>Category</th>
+                <th>Status</th>
+                <th>Condition</th>
+                <th>Department / Location</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for asset in assets %}
+                <tr>
+                  <td>
+                    <strong>{{ asset.asset_id }}</strong><br>
+                    <span class="fassets-table-subtext">{{ asset.name }}</span>
+                  </td>
+                  <td>{{ asset.category.name }}</td>
+                  <td><span class="fassets-admin-status {{ asset.status }}">{{ asset.get_status_display }}</span></td>
+                  <td><span class="fassets-admin-status neutral">{{ asset.get_condition_display }}</span></td>
+                  <td>
+                    {{ asset.current_location.department.name }}<br>
+                    <span class="fassets-table-subtext">{{ asset.current_location }}</span>
+                  </td>
+                  <td>
+                    <div class="fassets-model-actions">
+                      <a href="{% url 'admin:manage_resource' resource='assets' %}?edit={{ asset.id }}">Edit</a>
+                    </div>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="fassets-empty-state">
+          <h3>No assets found</h3>
+          <p>Try changing the filters or add a new asset from the admin tools.</p>
+        </div>
+      {% endif %}
+    </section>
+  </section>
+{% endblock %}

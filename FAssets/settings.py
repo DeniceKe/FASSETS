@@ -40,7 +40,7 @@ ALLOWED_HOSTS = ["localhost", "127.0.0.1", "testserver"]
 # Application definition
 
 INSTALLED_APPS = [
-    'django.contrib.admin',
+    'FAssets.admin_config.FAssetsAdminConfig',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',

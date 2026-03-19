@@ -1,9 +1,12 @@
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count, Q
-from django.shortcuts import render
+from django.contrib.admin.views.decorators import staff_member_required
+from django.contrib import messages
+from django.db.models import Count
+from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
 
-from .models import Asset, Category, Location
-from allocations.models import Allocation
+from .models import Asset
+from allocations.models import Allocation, AssetRequest
 from maintenance.models import Maintenance
 from accounts.roles import infer_user_role
 
@@ -27,10 +30,15 @@ def dashboard(request):
     department = getattr(profile, "department", None)
     role = infer_user_role(request.user)
 
-    if not request.user.is_superuser and department and role not in {"admin", "dean"}:
-        assets_qs = assets_qs.filter(current_location__department=department)
-        allocations_qs = allocations_qs.filter(asset__current_location__department=department)
-        maintenance_qs = maintenance_qs.filter(asset__current_location__department=department)
+    if not request.user.is_superuser and role not in {"admin", "dean"}:
+        if department:
+            assets_qs = assets_qs.filter(current_location__department=department)
+            allocations_qs = allocations_qs.filter(asset__current_location__department=department)
+            maintenance_qs = maintenance_qs.filter(asset__current_location__department=department)
+        else:
+            assets_qs = assets_qs.none()
+            allocations_qs = allocations_qs.none()
+            maintenance_qs = maintenance_qs.none()
 
     total_assets = assets_qs.count()
     available = assets_qs.filter(status="available").count()
@@ -46,6 +54,16 @@ def dashboard(request):
         .order_by("-total", "current_location__department__name")[:6]
     )
 
+    department_assets = assets_qs.order_by("name")[:100]
+    request_status_by_asset = {
+        request.asset_id: request.status
+        for request in AssetRequest.objects.filter(
+            requested_by=request.user,
+            asset__in=department_assets,
+            status="pending",
+        )
+    }
+
     return render(request, "dashboard.html", {
         "total_assets": total_assets,
         "available": available,
@@ -57,38 +75,51 @@ def dashboard(request):
         "recent_assets": assets_qs.order_by("-created_at")[:5],
         "recent_allocations": allocations_qs.order_by("-allocation_date")[:5],
         "recent_maintenance": maintenance_qs.order_by("-scheduled_date")[:5],
+        "department_assets": department_assets,
+        "request_status_by_asset": request_status_by_asset,
         "department_distribution": department_distribution,
         "user_role": role.replace("_", " ").title() if role else "Unassigned",
         "user_department": department,
     })
 
 
-@login_required
+@staff_member_required
 def asset_list(request):
-    qs = Asset.objects.select_related("category", "current_location", "current_location__department")
+    query_string = request.META.get("QUERY_STRING", "")
+    target = "/admin/inventory/"
+    if query_string:
+        target = f"{target}?{query_string}"
+    return redirect(target)
 
-    # Department isolation (basic): non-superuser sees only own dept assets (if profile has dept)
-    if not request.user.is_superuser and getattr(request.user, "profile", None) and request.user.profile.department:
-        qs = qs.filter(current_location__department=request.user.profile.department)
 
-    q = request.GET.get("q", "").strip()
-    category = request.GET.get("category", "").strip()
-    status = request.GET.get("status", "").strip()
+@login_required
+@require_POST
+def request_asset(request, asset_id):
+    asset = get_object_or_404(
+        Asset.objects.select_related("current_location", "current_location__department"),
+        pk=asset_id,
+    )
 
-    if q:
-        qs = qs.filter(Q(asset_id__icontains=q) | Q(name__icontains=q) | Q(description__icontains=q))
+    profile = getattr(request.user, "profile", None)
+    department = getattr(profile, "department", None)
 
-    if category:
-        qs = qs.filter(category_id=category)
+    if not request.user.is_superuser and department and asset.current_location.department_id != department.id:
+        messages.error(request, "You can only request assets from your department.")
+        return redirect("assets:dashboard")
 
-    if status:
-        qs = qs.filter(status=status)
+    if asset.status != "available":
+        messages.error(request, "This asset is not currently available for requests.")
+        return redirect("assets:dashboard")
 
-    return render(request, "assets/list.html", {
-        "assets": qs.order_by("-created_at")[:200],
-        "categories": Category.objects.all().order_by("name"),
-        "total_results": qs.count(),
-        "q": q,
-        "category": category,
-        "status": status,
-    })
+    existing_request = AssetRequest.objects.filter(asset=asset, requested_by=request.user, status="pending").first()
+    if existing_request:
+        messages.info(request, "You already have a pending request for this asset.")
+        return redirect("assets:dashboard")
+
+    AssetRequest.objects.create(
+        asset=asset,
+        requested_by=request.user,
+        message=f"Request submitted by {request.user.get_full_name() or request.user.username}.",
+    )
+    messages.success(request, f"Your request for {asset.name} has been submitted.")
+    return redirect("assets:dashboard")

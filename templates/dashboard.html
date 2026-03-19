@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load assets_extras %}
 {% block title %}Dashboard | FASSETS{% endblock %}
 {% block content %}
 <section class="page-card">
@@ -208,6 +209,64 @@
         <p class="muted endpoint-result">Checking endpoint...</p>
       </div>
     </div>
+  </div>
+
+  <div class="section">
+    <div class="toolbar">
+      <div>
+        <p class="eyebrow">Department Assets</p>
+        <h2>Assets visible in your department</h2>
+      </div>
+      <div class="chip">
+        {% if user_department %}{{ user_department.name }}{% else %}Faculty-wide view{% endif %}
+      </div>
+    </div>
+
+    {% if department_assets %}
+      <table>
+        <thead>
+          <tr>
+            <th>Asset</th>
+            <th>Category</th>
+            <th>Status</th>
+            <th>Condition</th>
+            <th>Location</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for asset in department_assets %}
+            <tr>
+              <td>
+                <strong>{{ asset.asset_id }}</strong><br>
+                <span class="muted">{{ asset.name }}</span>
+              </td>
+              <td>{{ asset.category.name }}</td>
+              <td><span class="status {{ asset.status }}">{{ asset.get_status_display }}</span></td>
+              <td><span class="status">{{ asset.get_condition_display }}</span></td>
+              <td>{{ asset.current_location }}</td>
+              <td>
+                {% if request_status_by_asset|get_item:asset.id == "pending" %}
+                  <button class="cta-button is-disabled" type="button" disabled>Requested</button>
+                {% elif asset.status == "available" %}
+                  <form method="post" action="{% url 'assets:request_asset' asset.id %}">
+                    {% csrf_token %}
+                    <button class="cta-button" type="submit">Request</button>
+                  </form>
+                {% else %}
+                  <button class="cta-button is-disabled" type="button" disabled>Request</button>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="empty-state">
+        <h3>No department assets available</h3>
+        <p>Once assets are registered under your department, they will appear here for viewing and requests.</p>
+      </div>
+    {% endif %}
   </div>
 </section>
 

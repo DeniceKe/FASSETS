@@ -11,6 +11,13 @@ ALLOCATION_STATUS = [
     ('overdue', 'Overdue'),
 ]
 
+REQUEST_STATUS = [
+    ('pending', 'Pending'),
+    ('approved', 'Approved'),
+    ('rejected', 'Rejected'),
+    ('cancelled', 'Cancelled'),
+]
+
 class Allocation(models.Model):
     asset = models.ForeignKey(Asset, on_delete=models.PROTECT, related_name="allocations")
     allocated_to = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, related_name="allocations_received")
@@ -74,3 +81,39 @@ class Allocation(models.Model):
         elif self.asset.status == "allocated" and not active_exists:
             self.asset.status = "available"
         self.asset.save(update_fields=["status", "updated_at"])
+
+
+class AssetRequest(models.Model):
+    asset = models.ForeignKey(Asset, on_delete=models.CASCADE, related_name="requests")
+    requested_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="asset_requests")
+    status = models.CharField(max_length=20, choices=REQUEST_STATUS, default="pending")
+    message = models.TextField(blank=True)
+    requested_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-requested_at"]
+
+    def __str__(self) -> str:
+        return f"{self.asset.asset_id} request by {self.requested_by.username}"
+
+    def clean(self):
+        super().clean()
+
+        if self.asset.status != "available" and self.status == "pending":
+            raise ValidationError("Only available assets can be requested.")
+
+        existing_pending = AssetRequest.objects.filter(
+            asset=self.asset,
+            requested_by=self.requested_by,
+            status="pending",
+        )
+        if self.pk:
+            existing_pending = existing_pending.exclude(pk=self.pk)
+
+        if existing_pending.exists():
+            raise ValidationError("You already have a pending request for this asset.")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
