@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Sign Up | FASSETS{% endblock %}
+
+{% block content %}
+<section class="login-shell">
+  <div class="login-layout">
+    <div class="login-intro">
+      <p class="eyebrow" style="color: rgba(255,255,255,0.78);">Create Account</p>
+      <h1>Sign up to access assets registered in your department.</h1>
+      <p>Students and staff can create their accounts with department details so asset visibility stays scoped to the right unit.</p>
+      <div class="inline-meta">
+        <span class="pill" style="background: rgba(255,255,255,0.12); color: #fff; border-color: rgba(255,255,255,0.18);">Department-based access</span>
+        <span class="pill" style="background: rgba(255,255,255,0.12); color: #fff; border-color: rgba(255,255,255,0.18);">Student or staff profile</span>
+        <span class="pill" style="background: rgba(255,255,255,0.12); color: #fff; border-color: rgba(255,255,255,0.18);">Asset requests</span>
+      </div>
+    </div>
+
+    <div class="login-form-wrap">
+      <p class="eyebrow">New User</p>
+      <h2>Create your FASSETS account</h2>
+      <p>Fill in your personal and department information below.</p>
+
+      {% if form.errors %}
+        <div class="alert">Please correct the highlighted signup details and try again.</div>
+      {% endif %}
+
+      <form method="post" class="form-stack">
+        {% csrf_token %}
+
+        {% for field in form %}
+          <div class="form-field">
+            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+            {% if field.help_text %}
+              <p class="form-help">{{ field.help_text|safe }}</p>
+            {% endif %}
+            {% for error in field.errors %}
+              <p class="form-help" style="color: #9f1239;">{{ error }}</p>
+            {% endfor %}
+          </div>
+        {% endfor %}
+
+        <button type="submit">Create Account</button>
+      </form>
+
+      <div class="panel" style="margin-top: 18px;">
+        <h3>Already registered?</h3>
+        <p>Use your username and password to sign in.</p>
+        <a class="button-link secondary" href="{% url 'login' %}">Back to Sign In</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  const userTypeField = document.getElementById('id_user_type');
+  const regField = document.getElementById('id_registration_number')?.closest('.form-field');
+  const staffField = document.getElementById('id_employee_id')?.closest('.form-field');
+
+  function toggleIdentityFields() {
+    if (!userTypeField || !regField || !staffField) return;
+    if (userTypeField.value === 'student') {
+      regField.style.display = 'block';
+      staffField.style.display = 'none';
+    } else if (userTypeField.value === 'staff') {
+      regField.style.display = 'none';
+      staffField.style.display = 'block';
+    } else {
+      regField.style.display = 'block';
+      staffField.style.display = 'block';
+    }
+  }
+
+  userTypeField?.addEventListener('change', toggleIdentityFields);
+  toggleIdentityFields();
+</script>
+{% endblock %}

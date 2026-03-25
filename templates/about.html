@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}About | FASSETS{% endblock %}
+{% block content %}
+<section class="page-card">
+  <div class="section">
+    <p class="eyebrow">About The System</p>
+    <div class="grid two">
+      <div>
+        <h1>FASSETS helps the Faculty of Science track assets from registration to maintenance and reporting.</h1>
+        <p>The proposal describes a centralized web-based platform for managing faculty assets securely across departments, with accountability, structured records, and role-based access control.</p>
+        <div class="inline-meta">
+          <span class="chip">Centralized asset registry</span>
+          <span class="chip">Role-based access</span>
+          <span class="chip">Assignment and return tracking</span>
+        </div>
+      </div>
+      <div class="panel accent-panel">
+        <p class="eyebrow" style="color: rgba(255,255,255,0.72);">What Users Get</p>
+        <h2 style="color: #fff;">A secure operational workspace for the whole asset lifecycle</h2>
+        <p>Users can work within their assigned scope while administrators and leadership maintain oversight of departments, inventory, maintenance activity, and reporting.</p>
+        {% if user.is_authenticated %}
+          <a class="button-link secondary" href="{% url 'assets:dashboard' %}">Open User Dashboard</a>
+        {% else %}
+          <a class="button-link secondary" href="{% url 'login' %}">Sign In</a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="grid three">
+      <div class="panel">
+        <p class="eyebrow">User Management</p>
+        <h3>Role-based access</h3>
+        <p>Supports proposal roles such as Admin, Dean, COD, Lecturer, and Lab Technician, with department-aware access to data and operations.</p>
+      </div>
+      <div class="panel">
+        <p class="eyebrow">Asset Management</p>
+        <h3>Register and classify assets</h3>
+        <p>Capture assets in a centralized database, attach categories and locations, manage status, and maintain consistent identification.</p>
+      </div>
+      <div class="panel">
+        <p class="eyebrow">Assignment Workflow</p>
+        <h3>Track issue and return</h3>
+        <p>Allocate assets to users or labs, monitor return expectations, and prevent double assignment of unavailable items.</p>
+      </div>
+      <div class="panel">
+        <p class="eyebrow">Maintenance</p>
+        <h3>Log service history</h3>
+        <p>Record preventive and corrective maintenance, track status, assign technicians, and keep resolution history in one place.</p>
+      </div>
+      <div class="panel">
+        <p class="eyebrow">Reporting</p>
+        <h3>Support decision-making</h3>
+        <p>Generate structured views of asset distribution, assignment activity, and maintenance history for better oversight.</p>
+      </div>
+      <div class="panel">
+        <p class="eyebrow">Accountability</p>
+        <h3>Reduce loss and confusion</h3>
+        <p>By replacing scattered records with a shared platform, the system improves transparency, accuracy, and administrative efficiency.</p>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

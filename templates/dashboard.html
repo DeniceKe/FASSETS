@@ -1,0 +1,310 @@
+{% extends "base.html" %}
+{% load assets_extras %}
+{% block title %}Dashboard | FASSETS{% endblock %}
+{% block content %}
+<section class="page-card">
+  <div class="section">
+    <p class="eyebrow">Operations Dashboard</p>
+    <div class="grid two">
+      <div>
+        <h1>Faculty asset oversight, live from the backend.</h1>
+        <p>This dashboard surfaces the current inventory position, active allocations, maintenance workload, and department distribution without changing your existing user base.</p>
+        <div class="inline-meta">
+          <span class="chip">Role: {{ user_role }}</span>
+          <span class="chip">Department: {% if user_department %}{{ user_department.name }}{% else %}All Departments{% endif %}</span>
+          <span class="chip">Authenticated as {{ user.username }}</span>
+        </div>
+      </div>
+      <div class="panel accent-panel">
+        <p class="eyebrow" style="color: rgba(255,255,255,0.72);">Status</p>
+        <h2 style="color: #fff;">Backend-connected dashboard</h2>
+        <p>The summary cards below are rendered from server-side queries, and the endpoint panel uses the proposal report APIs directly from the browser session.</p>
+        <div class="inline-meta">
+          <span class="pill" style="background: rgba(255,255,255,0.12); color: #fff; border-color: rgba(255,255,255,0.14);">Session-auth API</span>
+          <span class="pill" style="background: rgba(255,255,255,0.12); color: #fff; border-color: rgba(255,255,255,0.14);">Department-aware</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="grid metrics">
+      <div class="metric-card">
+        <strong>{{ total_assets }}</strong>
+        <span>Total Assets</span>
+      </div>
+      <div class="metric-card">
+        <strong>{{ available }}</strong>
+        <span>Available</span>
+      </div>
+      <div class="metric-card">
+        <strong>{{ allocated }}</strong>
+        <span>Allocated</span>
+      </div>
+      <div class="metric-card">
+        <strong>{{ maintenance }}</strong>
+        <span>Under Maintenance</span>
+      </div>
+      <div class="metric-card">
+        <strong>{{ active_allocations }}</strong>
+        <span>Active Allocations</span>
+      </div>
+      <div class="metric-card">
+        <strong>{{ open_maintenance }}</strong>
+        <span>Open Maintenance Jobs</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="grid two">
+      <div class="panel">
+        <div class="toolbar">
+          <div>
+            <p class="eyebrow">Recent Assets</p>
+            <h2>Newest inventory records</h2>
+          </div>
+          <a class="button-link secondary" href="{% url 'assets:asset_list' %}">Open Inventory</a>
+        </div>
+        {% if recent_assets %}
+          <div class="list-stack">
+            {% for asset in recent_assets %}
+              <div class="list-item">
+                <strong>{{ asset.asset_id }} - {{ asset.name }}</strong>
+                <span class="muted">{{ asset.category.name }} in {{ asset.current_location.department.name }}</span>
+                <div class="inline-meta">
+                  <span class="status {{ asset.status }}">{{ asset.get_status_display }}</span>
+                  <span class="status">{{ asset.get_condition_display }}</span>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="empty-state">
+            <h3>No assets yet</h3>
+            <p>Asset records will appear here once inventory is registered.</p>
+          </div>
+        {% endif %}
+      </div>
+
+      <div class="panel">
+        <p class="eyebrow">Department Spread</p>
+        <h2>Asset distribution snapshot</h2>
+        {% if department_distribution %}
+          <table>
+            <thead>
+              <tr>
+                <th>Department</th>
+                <th>Code</th>
+                <th>Total Assets</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in department_distribution %}
+                <tr>
+                  <td>{{ row.current_location__department__name }}</td>
+                  <td>{{ row.current_location__department__code }}</td>
+                  <td>{{ row.total }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div class="empty-state">
+            <h3>No distribution data</h3>
+            <p>Department totals will appear after assets are created and assigned locations.</p>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="grid two">
+      <div class="panel">
+        <p class="eyebrow">Allocations</p>
+        <h2>Recent assignment activity</h2>
+        {% if recent_allocations %}
+          <div class="list-stack">
+            {% for allocation in recent_allocations %}
+              <div class="list-item">
+                <strong>{{ allocation.asset.asset_id }} - {{ allocation.asset.name }}</strong>
+                <span class="muted">
+                  {% if allocation.allocated_to %}
+                    Assigned to {{ allocation.allocated_to.username }}
+                  {% else %}
+                    Assigned to {{ allocation.allocated_to_lab }}
+                  {% endif %}
+                </span>
+                <div class="inline-meta">
+                  <span class="status {{ allocation.status }}">{{ allocation.get_status_display }}</span>
+                  <span class="chip">Issued {{ allocation.allocation_date }}</span>
+                  <span class="chip">Return {{ allocation.expected_return_date }}</span>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="empty-state">
+            <h3>No allocations yet</h3>
+            <p>Assignment records will appear here when assets start moving to staff or labs.</p>
+          </div>
+        {% endif %}
+      </div>
+
+      <div class="panel">
+        <p class="eyebrow">Maintenance</p>
+        <h2>Service and repair activity</h2>
+        {% if recent_maintenance %}
+          <div class="list-stack">
+            {% for item in recent_maintenance %}
+              <div class="list-item">
+                <strong>{{ item.asset.asset_id }} - {{ item.asset.name }}</strong>
+                <span class="muted">{{ item.description }}</span>
+                <div class="inline-meta">
+                  <span class="status {{ item.status }}">{{ item.get_status_display }}</span>
+                  <span class="chip">{{ item.get_maintenance_type_display }}</span>
+                  <span class="chip">Scheduled {{ item.scheduled_date }}</span>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="empty-state">
+            <h3>No maintenance records yet</h3>
+            <p>Corrective and preventive maintenance entries will show up here.</p>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <p class="eyebrow">Endpoint Monitor</p>
+    <h2>Proposal report endpoints</h2>
+    <p>The cards below call the authenticated API endpoints directly so the frontend can visibly confirm the backend routes are responding.</p>
+    <div class="endpoint-grid">
+      <div class="endpoint-card" data-endpoint="/api/reports/dashboard/">
+        <strong>Dashboard Report</strong>
+        <p class="muted">Live totals and summary counts.</p>
+        <code>/api/reports/dashboard/</code>
+        <p class="muted endpoint-result">Checking endpoint...</p>
+      </div>
+      <div class="endpoint-card" data-endpoint="/api/reports/assets-by-department/">
+        <strong>Assets by Department</strong>
+        <p class="muted">Distribution breakdown across departments.</p>
+        <code>/api/reports/assets-by-department/</code>
+        <p class="muted endpoint-result">Checking endpoint...</p>
+      </div>
+      <div class="endpoint-card" data-endpoint="/api/reports/assigned-assets/">
+        <strong>Assigned Assets</strong>
+        <p class="muted">Open assignments for the current scope.</p>
+        <code>/api/reports/assigned-assets/</code>
+        <p class="muted endpoint-result">Checking endpoint...</p>
+      </div>
+      <div class="endpoint-card" data-endpoint="/api/reports/maintenance-history/">
+        <strong>Maintenance History</strong>
+        <p class="muted">Current maintenance records in scope.</p>
+        <code>/api/reports/maintenance-history/</code>
+        <p class="muted endpoint-result">Checking endpoint...</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="toolbar">
+      <div>
+        <p class="eyebrow">Department Assets</p>
+        <h2>Assets visible in your department</h2>
+      </div>
+      <div class="chip">
+        {% if user_department %}{{ user_department.name }}{% else %}Faculty-wide view{% endif %}
+      </div>
+    </div>
+
+    {% if department_assets %}
+      <table>
+        <thead>
+          <tr>
+            <th>Asset</th>
+            <th>Category</th>
+            <th>Status</th>
+            <th>Condition</th>
+            <th>Location</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for asset in department_assets %}
+            <tr>
+              <td>
+                <strong>{{ asset.asset_id }}</strong><br>
+                <span class="muted">{{ asset.name }}</span>
+              </td>
+              <td>{{ asset.category.name }}</td>
+              <td><span class="status {{ asset.status }}">{{ asset.get_status_display }}</span></td>
+              <td><span class="status">{{ asset.get_condition_display }}</span></td>
+              <td>{{ asset.current_location }}</td>
+              <td>
+                {% if request_status_by_asset|get_item:asset.id == "pending" %}
+                  <button class="cta-button is-disabled" type="button" disabled>Requested</button>
+                {% elif asset.status == "available" %}
+                  <form method="post" action="{% url 'assets:request_asset' asset.id %}">
+                    {% csrf_token %}
+                    <button class="cta-button" type="submit">Request</button>
+                  </form>
+                {% else %}
+                  <button class="cta-button is-disabled" type="button" disabled>Request</button>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="empty-state">
+        <h3>No department assets available</h3>
+        <p>Once assets are registered under your department, they will appear here for viewing and requests.</p>
+      </div>
+    {% endif %}
+  </div>
+</section>
+
+<script>
+  async function probeEndpoint(card) {
+    const endpoint = card.dataset.endpoint;
+    const result = card.querySelector('.endpoint-result');
+
+    try {
+      const response = await fetch(endpoint, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        credentials: 'same-origin',
+      });
+
+      if (!response.ok) {
+        result.textContent = `Unavailable (${response.status})`;
+        result.style.color = '#b54437';
+        return;
+      }
+
+      const data = await response.json();
+      let summary = 'Endpoint responding';
+
+      if (Array.isArray(data)) {
+        summary = `${data.length} record${data.length === 1 ? '' : 's'} returned`;
+      } else if (typeof data === 'object' && data !== null) {
+        const pairs = Object.entries(data).slice(0, 2).map(([key, value]) => `${key}: ${value}`);
+        summary = pairs.join(' | ') || 'Endpoint responding';
+      }
+
+      result.textContent = summary;
+      result.style.color = '#0c6b58';
+    } catch (error) {
+      result.textContent = 'Request failed';
+      result.style.color = '#b54437';
+    }
+  }
+
+  document.querySelectorAll('.endpoint-card').forEach(probeEndpoint);
+</script>
+{% endblock %}

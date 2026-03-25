@@ -1,0 +1,44 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block extrastyle %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'fassets-admin.css' %}">
+{% endblock %}
+
+{% block title %}{{ title }} | FASSETS Admin{% endblock %}
+
+{% block branding %}
+  <div class="fassets-branding">
+    <div class="fassets-brand-mark">FS</div>
+    <div>
+      <h1 id="site-name"><a href="{% url 'admin:index' %}">FASSETS Administration</a></h1>
+      <p class="fassets-brand-subtitle">Faculty of Science Asset Management Control Center</p>
+    </div>
+  </div>
+{% endblock %}
+
+{% block nav-global %}
+  {% if has_permission %}
+    <div class="fassets-admin-links">
+      <a href="{% url 'admin:inventory' %}">Inventory</a>
+    </div>
+  {% endif %}
+{% endblock %}
+
+{% block nav-sidebar %}{% endblock %}
+
+{% block usertools %}
+  <div id="user-tools">
+    {% if has_permission %}
+      <span>Signed in as <strong>{% firstof user.get_short_name user.get_username %}</strong></span>
+      {% if user.has_usable_password %}
+        <a href="{% url 'admin:password_change' %}">Change password</a>
+      {% endif %}
+      <form method="post" action="{% url 'admin:logout' %}" class="fassets-admin-logout">
+        {% csrf_token %}
+        <button type="submit">Log out</button>
+      </form>
+    {% endif %}
+  </div>
+{% endblock %}

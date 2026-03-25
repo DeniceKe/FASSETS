@@ -1,0 +1,45 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block bodyclass %}{{ block.super }} login{% endblock %}
+{% block nav-sidebar %}{% endblock %}
+
+{% block content %}
+  <section class="fassets-admin-login-shell">
+    <div class="fassets-admin-login-card">
+      <div class="fassets-admin-login-intro">
+        <p class="fassets-eyebrow">Admin Sign In</p>
+        <h2>Access the FASSETS administrative control center.</h2>
+        <p>Superusers and authorized staff can manage users, inventory, allocations, maintenance, and supporting master data from this secure admin workspace.</p>
+      </div>
+
+      <div class="fassets-admin-login-form">
+        {% if form.errors and not form.non_field_errors %}
+          <p class="errornote">{% translate "Please correct the error below." %}</p>
+        {% endif %}
+
+        {% if form.non_field_errors %}
+          {% for error in form.non_field_errors %}
+            <p class="errornote">{{ error }}</p>
+          {% endfor %}
+        {% endif %}
+
+        <form action="{{ app_path }}" method="post" id="login-form">
+          {% csrf_token %}
+          <div class="form-row">
+            {{ form.username.label_tag }}
+            {{ form.username }}
+          </div>
+          <div class="form-row">
+            {{ form.password.label_tag }}
+            {{ form.password }}
+            <input type="hidden" name="next" value="{{ next }}">
+          </div>
+          <div class="submit-row">
+            <input type="submit" value="{% translate 'Log in' %}">
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+{% endblock %}

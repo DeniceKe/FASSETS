@@ -16,6 +16,7 @@ pyvenv.cfg
 
 # Django
 *.log
+.env
 db.sqlite3
 media/
 staticfiles/
@@ -24,6 +25,7 @@ staticfiles/
 .vscode/
 .idea/
 .DS_Store
+.env
 Thumbs.db
 
 # Build / cache

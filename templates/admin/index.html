@@ -1,0 +1,169 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+  <section class="fassets-admin-dashboard">
+    <div class="fassets-admin-hero">
+    <div>
+        <p class="fassets-eyebrow">Administrative Control Center</p>
+        <h2>Run the Faculty of Science asset platform from a single operational dashboard.</h2>
+        <p>This custom admin home replaces the stock Django landing page with a control center for oversight, quick actions, and model management while preserving full superuser power.</p>
+      </div>
+      <div class="fassets-hero-actions">
+        <a class="fassets-cta" href="{% url 'admin:inventory' %}">Open Inventory</a>
+        <a class="fassets-cta secondary" href="{% url 'admin:app_list' app_label='assets' %}">Manage Asset Models</a>
+      </div>
+    </div>
+
+    <div class="fassets-metric-grid">
+      {% for metric in dashboard_metrics %}
+        <div class="fassets-stat-card">
+          <strong>{{ metric.value }}</strong>
+          <span>{{ metric.label }}</span>
+        </div>
+      {% endfor %}
+    </div>
+
+    <div class="fassets-admin-layout">
+      <div class="fassets-admin-main">
+        <section class="fassets-admin-card">
+          <div class="fassets-card-head">
+            <div>
+              <p class="fassets-eyebrow">Quick Actions</p>
+              <h3>Jump straight into core administration</h3>
+            </div>
+          </div>
+          <div class="fassets-action-grid">
+            {% for link in admin_quick_links %}
+              <a class="fassets-action-card" href="{{ link.url }}">
+                <strong>{{ link.label }}</strong>
+                <span>Open form</span>
+              </a>
+            {% endfor %}
+          </div>
+        </section>
+
+        <section class="fassets-admin-card">
+          <div class="fassets-card-head">
+            <div>
+              <p class="fassets-eyebrow">Application Modules</p>
+              <h3>Manage registered models</h3>
+            </div>
+          </div>
+
+          {% if app_list %}
+            <div class="fassets-admin-grid">
+              {% for app in app_list %}
+                <section class="fassets-module-card">
+                  <div class="fassets-admin-card-head">
+                    <div>
+                      <p class="fassets-eyebrow">{{ app.app_label }}</p>
+                      <h3>{{ app.name }}</h3>
+                    </div>
+                  </div>
+                  <div class="fassets-module-actions">
+                    {% for model in app.models %}
+                      {% if model.manage_url %}
+                        <a class="fassets-module-button" href="{{ model.manage_url }}">{{ model.name }}</a>
+                      {% endif %}
+                    {% endfor %}
+                  </div>
+                  <div class="fassets-model-list">
+                    {% for model in app.models %}
+                      <div class="fassets-model-row">
+                        <div>
+                          <strong>{{ model.name }}</strong>
+                          <p>
+                            {% if model.admin_url %}Open, review, and manage entries for this module.{% else %}This module is not available for your current permissions.{% endif %}
+                          </p>
+                        </div>
+                        <div class="fassets-model-actions">
+                          {% if model.manage_url %}
+                            <a href="{{ model.manage_url }}">Manage</a>
+                          {% endif %}
+                          {% if model.manage_url %}
+                            <a href="{{ model.manage_url }}">Add / Edit</a>
+                          {% endif %}
+                        </div>
+                      </div>
+                    {% endfor %}
+                  </div>
+                </section>
+              {% endfor %}
+            </div>
+          {% else %}
+            <div class="fassets-empty-state">
+              <h3>No admin modules available</h3>
+              <p>Your account does not currently have access to admin-managed models.</p>
+            </div>
+          {% endif %}
+        </section>
+      </div>
+
+      <aside class="fassets-admin-sidebar">
+        <section class="fassets-admin-card">
+          <p class="fassets-eyebrow">Operational Snapshot</p>
+          <h3>Live totals</h3>
+          <div class="fassets-collection-stack">
+            {% for item in admin_collections %}
+              <div class="fassets-collection-item">
+                <span>{{ item.label }}</span>
+                <strong>{{ item.value }}</strong>
+              </div>
+            {% endfor %}
+          </div>
+        </section>
+
+        <section class="fassets-admin-card">
+          <p class="fassets-eyebrow">Recent Assets</p>
+          <h3>Latest inventory additions</h3>
+          <div class="fassets-feed-list">
+            {% for asset in recent_assets %}
+              <div class="fassets-feed-item">
+                <strong>{{ asset.asset_id }} - {{ asset.name }}</strong>
+                <span>{{ asset.category.name }}</span>
+              </div>
+            {% empty %}
+              <p class="fassets-feed-empty">No recent assets available.</p>
+            {% endfor %}
+          </div>
+        </section>
+
+        <section class="fassets-admin-card">
+          <p class="fassets-eyebrow">Recent Allocations</p>
+          <h3>Latest assignment activity</h3>
+          <div class="fassets-feed-list">
+            {% for allocation in recent_allocations %}
+              <div class="fassets-feed-item">
+                <strong>{{ allocation.asset.asset_id }} - {{ allocation.asset.name }}</strong>
+                <span>
+                  {% if allocation.allocated_to %}
+                    {{ allocation.allocated_to.username }}
+                  {% else %}
+                    {{ allocation.allocated_to_lab }}
+                  {% endif %}
+                </span>
+              </div>
+            {% empty %}
+              <p class="fassets-feed-empty">No recent allocations available.</p>
+            {% endfor %}
+          </div>
+        </section>
+
+        <section class="fassets-admin-card">
+          <p class="fassets-eyebrow">Recent Maintenance</p>
+          <h3>Latest service records</h3>
+          <div class="fassets-feed-list">
+            {% for item in recent_maintenance %}
+              <div class="fassets-feed-item">
+                <strong>{{ item.asset.asset_id }} - {{ item.asset.name }}</strong>
+                <span>{{ item.get_status_display }}</span>
+              </div>
+            {% empty %}
+              <p class="fassets-feed-empty">No recent maintenance available.</p>
+            {% endfor %}
+          </div>
+        </section>
+      </aside>
+    </div>
+  </section>
+{% endblock %}

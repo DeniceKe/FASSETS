@@ -1,19 +1,11 @@
-from django.urls import path, include
-from rest_framework.routers import DefaultRouter
+from django.urls import path
+from . import views
 
-from .views import (
-    DepartmentViewSet,
-    AssetViewSet,
-    MaintenanceRecordViewSet,
-)
-
-router = DefaultRouter()
-router.register(r"departments", DepartmentViewSet, basename="departments")
-# router.register(r"categories", AssetCategoryViewSet, basename="categories")
-router.register(r"assets", AssetViewSet, basename="assets")
-# router.register(r"assignments", AssetAssignmentViewSet, basename="assignments")
-router.register(r"maintenance", MaintenanceRecordViewSet, basename="maintenance")
+app_name = "assets"
 
 urlpatterns = [
-    path("", include(router.urls)),
+    path("", views.about, name="about"),
+    path("dashboard/", views.dashboard, name="dashboard"),
+    path("assets/", views.asset_list, name="asset_list"),
+    path("assets/<int:asset_id>/request/", views.request_asset, name="request_asset"),
 ]

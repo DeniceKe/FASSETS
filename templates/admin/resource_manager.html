@@ -1,0 +1,381 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+  {{ resource_config|json_script:"resource-config" }}
+  <section class="fassets-admin-dashboard">
+    <div class="fassets-admin-hero">
+      <div>
+        <p class="fassets-eyebrow">API-backed Manager</p>
+        <h2>{{ resource_config.title }}</h2>
+        <p>Create, update, and review {{ resource_config.singular|lower }} records through a custom admin workspace powered by the FASSETS API.</p>
+      </div>
+      <div class="fassets-hero-actions">
+        <a class="fassets-cta" href="{% url 'admin:index' %}">Back To Admin Home</a>
+        <a class="fassets-cta secondary" href="{% url 'admin:inventory' %}">Open Inventory</a>
+      </div>
+    </div>
+
+    <div class="fassets-resource-layout">
+      <section class="fassets-admin-card">
+        <div class="fassets-card-head">
+          <div>
+            <p class="fassets-eyebrow">Records</p>
+            <h3>{{ resource_config.singular }} list</h3>
+          </div>
+          <button type="button" class="button" id="new-record-button">New {{ resource_config.singular }}</button>
+        </div>
+        <div id="resource-status" class="fassets-resource-status">Loading records...</div>
+        <div class="fassets-admin-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                {% for column in resource_config.list_columns %}
+                  <th>{{ column.label }}</th>
+                {% endfor %}
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="resource-table-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="fassets-admin-card">
+        <div class="fassets-card-head">
+          <div>
+            <p class="fassets-eyebrow">Editor</p>
+            <h3 id="editor-title">Create {{ resource_config.singular }}</h3>
+          </div>
+        </div>
+
+        <form id="resource-form" class="fassets-resource-form">
+          {% csrf_token %}
+          {% for field in resource_config.fields %}
+            <div class="fassets-form-field {% if field.type == 'textarea' %}span-2{% endif %} {% if field.type == 'checkbox' %}checkbox-field{% endif %}">
+              {% if field.type == 'checkbox' %}
+                <label class="fassets-checkbox">
+                  <input
+                    type="checkbox"
+                    name="{{ field.name }}"
+                    data-field="{{ field.name }}"
+                  >
+                  <span>{{ field.label }}</span>
+                </label>
+              {% else %}
+                <label for="field-{{ field.name }}">{{ field.label }}</label>
+                {% if field.type == 'textarea' %}
+                  <textarea
+                    id="field-{{ field.name }}"
+                    name="{{ field.name }}"
+                    data-field="{{ field.name }}"
+                    {% if field.required %}required{% endif %}
+                  ></textarea>
+                {% elif field.type == 'select' %}
+                  <select
+                    id="field-{{ field.name }}"
+                    name="{{ field.name }}"
+                    data-field="{{ field.name }}"
+                    {% if field.options_endpoint %}data-options-endpoint="{{ field.options_endpoint }}"{% endif %}
+                    {% if field.option_label_keys %}data-option-label-keys="{{ field.option_label_keys|join:',' }}"{% endif %}
+                    {% if field.required %}required{% endif %}
+                  >
+                    <option value="">Select {{ field.label }}</option>
+                    {% if field.options %}
+                      {% for option in field.options %}
+                        <option value="{{ option.value }}">{{ option.label }}</option>
+                      {% endfor %}
+                    {% endif %}
+                  </select>
+                {% else %}
+                  <input
+                    id="field-{{ field.name }}"
+                    name="{{ field.name }}"
+                    type="{{ field.type }}"
+                    data-field="{{ field.name }}"
+                    {% if field.step %}step="{{ field.step }}"{% endif %}
+                    {% if field.required %}required{% endif %}
+                  >
+                {% endif %}
+              {% endif %}
+            </div>
+          {% endfor %}
+
+          <div class="fassets-form-actions span-2">
+            <button type="submit" id="save-record-button">Save {{ resource_config.singular }}</button>
+            <button type="button" class="button secondary" id="reset-record-button">Clear</button>
+            <button type="button" class="button danger" id="delete-record-button" hidden>Delete</button>
+          </div>
+        </form>
+      </section>
+    </div>
+  </section>
+
+  <script>
+    const resourceConfig = JSON.parse(document.getElementById('resource-config').textContent);
+    const currentEditId = "{{ edit_id|escapejs }}";
+    const form = document.getElementById('resource-form');
+    const tableBody = document.getElementById('resource-table-body');
+    const statusBox = document.getElementById('resource-status');
+    const editorTitle = document.getElementById('editor-title');
+    const deleteButton = document.getElementById('delete-record-button');
+    const saveButton = document.getElementById('save-record-button');
+    const resetButton = document.getElementById('reset-record-button');
+    const newRecordButton = document.getElementById('new-record-button');
+
+    let records = [];
+    let editingId = currentEditId || null;
+
+    function getCookie(name) {
+      const cookieValue = document.cookie
+        .split('; ')
+        .find(row => row.startsWith(name + '='));
+      return cookieValue ? decodeURIComponent(cookieValue.split('=')[1]) : '';
+    }
+
+    async function fetchAll(url) {
+      const results = [];
+      let nextUrl = url;
+
+      while (nextUrl) {
+        const response = await fetch(nextUrl, { credentials: 'same-origin' });
+        if (!response.ok) {
+          throw new Error('Failed to load ' + nextUrl);
+        }
+        const data = await response.json();
+        if (Array.isArray(data)) {
+          results.push(...data);
+          nextUrl = null;
+        } else {
+          results.push(...(data.results || []));
+          nextUrl = data.next;
+        }
+      }
+
+      return results;
+    }
+
+    function describeOption(option, labelKeys) {
+      const pieces = (labelKeys || [])
+        .map(key => option[key])
+        .filter(Boolean);
+      return pieces.join(' - ') || option.name || option.username || option.id;
+    }
+
+    async function populateDynamicSelects() {
+      const selects = form.querySelectorAll('select[data-options-endpoint]');
+
+      for (const select of selects) {
+        const endpoint = select.dataset.optionsEndpoint;
+        const labelKeys = (select.dataset.optionLabelKeys || '').split(',').filter(Boolean);
+        const options = await fetchAll(endpoint);
+        const placeholder = select.querySelector('option')?.outerHTML || '<option value="">Select an option</option>';
+        select.innerHTML = placeholder;
+        options.forEach(option => {
+          const element = document.createElement('option');
+          element.value = option.id;
+          element.textContent = describeOption(option, labelKeys);
+          select.appendChild(element);
+        });
+      }
+    }
+
+    function formatValue(record, column) {
+      const value = record[column.key];
+      if (typeof value === 'boolean') {
+        return value ? 'Yes' : 'No';
+      }
+      return value || '-';
+    }
+
+    function renderTable() {
+      tableBody.innerHTML = '';
+
+      if (!records.length) {
+        tableBody.innerHTML = `<tr><td colspan="${resourceConfig.list_columns.length + 1}">No records found.</td></tr>`;
+        return;
+      }
+
+      records.forEach(record => {
+        const row = document.createElement('tr');
+
+        resourceConfig.list_columns.forEach(column => {
+          const cell = document.createElement('td');
+          if (column.badge && record[column.key]) {
+            cell.innerHTML = `<span class="fassets-admin-status ${record[column.key]}">${formatValue(record, column)}</span>`;
+          } else {
+            cell.textContent = formatValue(record, column);
+          }
+          row.appendChild(cell);
+        });
+
+        const actionCell = document.createElement('td');
+        const buttonWrap = document.createElement('div');
+        buttonWrap.className = 'fassets-model-actions';
+
+        const editButton = document.createElement('button');
+        editButton.type = 'button';
+        editButton.className = 'button secondary small';
+        editButton.textContent = 'Edit';
+        editButton.addEventListener('click', () => loadRecordIntoForm(record.id));
+
+        buttonWrap.appendChild(editButton);
+        actionCell.appendChild(buttonWrap);
+        row.appendChild(actionCell);
+
+        tableBody.appendChild(row);
+      });
+    }
+
+    function setStatus(message, tone = 'neutral') {
+      statusBox.textContent = message;
+      statusBox.dataset.tone = tone;
+    }
+
+    function resetForm() {
+      editingId = null;
+      form.reset();
+      editorTitle.textContent = `Create ${resourceConfig.singular}`;
+      saveButton.textContent = `Save ${resourceConfig.singular}`;
+      deleteButton.hidden = true;
+      history.replaceState({}, '', window.location.pathname);
+    }
+
+    function applyRecordToForm(record) {
+      resourceConfig.fields.forEach(field => {
+        const input = form.querySelector(`[name="${field.name}"]`);
+        if (!input) return;
+
+        const value = record[field.name];
+        if (field.type === 'checkbox') {
+          input.checked = Boolean(value);
+        } else {
+          input.value = value ?? '';
+        }
+      });
+    }
+
+    function loadRecordIntoForm(id) {
+      const record = records.find(item => String(item.id) === String(id));
+      if (!record) return;
+
+      editingId = record.id;
+      applyRecordToForm(record);
+      editorTitle.textContent = `Edit ${resourceConfig.singular}`;
+      saveButton.textContent = `Update ${resourceConfig.singular}`;
+      deleteButton.hidden = false;
+      history.replaceState({}, '', `${window.location.pathname}?edit=${record.id}`);
+      setStatus(`Editing ${resourceConfig.singular.toLowerCase()} #${record.id}.`, 'success');
+    }
+
+    function buildPayload() {
+      const payload = {};
+
+      resourceConfig.fields.forEach(field => {
+        const input = form.querySelector(`[name="${field.name}"]`);
+        if (!input) return;
+
+        if (field.type === 'checkbox') {
+          payload[field.name] = input.checked;
+          return;
+        }
+
+        const rawValue = input.value.trim();
+
+        if (!rawValue) {
+          if (field.omit_if_blank_on_edit && editingId) {
+            return;
+          }
+
+          if (field.type === 'select' || field.type === 'date' || field.type === 'number') {
+            payload[field.name] = null;
+          } else {
+            payload[field.name] = '';
+          }
+          return;
+        }
+
+        payload[field.name] = rawValue;
+      });
+
+      return payload;
+    }
+
+    async function loadRecords() {
+      setStatus('Loading records...');
+      records = await fetchAll(resourceConfig.api_base);
+      renderTable();
+      setStatus(`${records.length} record${records.length === 1 ? '' : 's'} loaded.`, 'success');
+
+      if (editingId) {
+        loadRecordIntoForm(editingId);
+      }
+    }
+
+    async function submitForm(event) {
+      event.preventDefault();
+      const payload = buildPayload();
+      const endpoint = editingId ? `${resourceConfig.api_base}${editingId}/` : resourceConfig.api_base;
+      const method = editingId ? 'PATCH' : 'POST';
+
+      setStatus('Saving changes...');
+
+      const response = await fetch(endpoint, {
+        method,
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCookie('csrftoken'),
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        setStatus(JSON.stringify(errorData), 'error');
+        return;
+      }
+
+      const record = await response.json();
+      setStatus(`${resourceConfig.singular} saved successfully.`, 'success');
+      editingId = record.id;
+      await loadRecords();
+      loadRecordIntoForm(record.id);
+    }
+
+    async function deleteRecord() {
+      if (!editingId) return;
+      if (!window.confirm(`Delete this ${resourceConfig.singular.toLowerCase()}?`)) return;
+
+      const response = await fetch(`${resourceConfig.api_base}${editingId}/`, {
+        method: 'DELETE',
+        credentials: 'same-origin',
+        headers: {
+          'X-CSRFToken': getCookie('csrftoken'),
+        },
+      });
+
+      if (!response.ok) {
+        setStatus(`Unable to delete this ${resourceConfig.singular.toLowerCase()}.`, 'error');
+        return;
+      }
+
+      setStatus(`${resourceConfig.singular} deleted.`, 'success');
+      resetForm();
+      await loadRecords();
+    }
+
+    form.addEventListener('submit', submitForm);
+    deleteButton.addEventListener('click', deleteRecord);
+    resetButton.addEventListener('click', resetForm);
+    newRecordButton.addEventListener('click', resetForm);
+
+    (async function init() {
+      try {
+        await populateDynamicSelects();
+        await loadRecords();
+      } catch (error) {
+        setStatus('Failed to load this manager page.', 'error');
+      }
+    })();
+  </script>
+{% endblock %}
