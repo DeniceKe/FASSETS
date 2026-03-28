@@ -346,6 +346,7 @@ class FAssetsAdminSite(AdminSite):
         urls = super().get_urls()
         custom_urls = [
             path("inventory/", self.admin_view(self.inventory_view), name="inventory"),
+            path("reports/", self.admin_view(self.reports_view), name="reports"),
             path("manage/<slug:resource>/", self.admin_view(self.manage_resource_view), name="manage_resource"),
             path(
                 "asset-requests/<int:request_id>/review/",
@@ -380,6 +381,7 @@ class FAssetsAdminSite(AdminSite):
                     {"label": "Manage Users", "url": reverse("admin:manage_resource", kwargs={"resource": "users"})},
                     {"label": "Manage Allocations", "url": reverse("admin:manage_resource", kwargs={"resource": "allocations"})},
                     {"label": "Manage Maintenance", "url": reverse("admin:manage_resource", kwargs={"resource": "maintenance"})},
+                    {"label": "Open Reports", "url": reverse("admin:reports")},
                     {"label": "Review Requests", "url": f"{reverse('admin:index')}#asset-requests"},
                 ],
                 "admin_collections": [
@@ -473,6 +475,60 @@ class FAssetsAdminSite(AdminSite):
         }
         request.current_app = self.name
         return TemplateResponse(request, "admin/inventory.html", context)
+
+    def reports_view(self, request):
+        from allocations.models import AssetRequest
+        from assets.models import Asset, Category
+        from maintenance.models import Maintenance
+
+        inventory_qs = Asset.objects.select_related(
+            "category",
+            "supplier",
+            "current_location",
+            "current_location__department",
+        ).order_by("asset_id")
+        requests_qs = AssetRequest.objects.select_related(
+            "asset",
+            "requested_by",
+            "reviewed_by",
+        ).order_by("-requested_at")
+        maintenance_qs = Maintenance.objects.select_related(
+            "asset",
+            "technician",
+            "reported_by",
+        ).order_by("-scheduled_date", "-created_at")
+
+        inventory_status = request.GET.get("inventory_status", "").strip()
+        inventory_category = request.GET.get("inventory_category", "").strip()
+        request_status = request.GET.get("request_status", "").strip()
+        maintenance_status = request.GET.get("maintenance_status", "").strip()
+
+        if inventory_status:
+            inventory_qs = inventory_qs.filter(status=inventory_status)
+
+        if inventory_category:
+            inventory_qs = inventory_qs.filter(category_id=inventory_category)
+
+        if request_status:
+            requests_qs = requests_qs.filter(status=request_status)
+
+        if maintenance_status:
+            maintenance_qs = maintenance_qs.filter(status=maintenance_status)
+
+        context = {
+            **self.each_context(request),
+            "title": "Reports",
+            "inventory_assets": inventory_qs,
+            "asset_requests_report": requests_qs,
+            "maintenance_report": maintenance_qs,
+            "categories": Category.objects.all().order_by("name"),
+            "inventory_status": inventory_status,
+            "inventory_category": inventory_category,
+            "request_status": request_status,
+            "maintenance_status": maintenance_status,
+        }
+        request.current_app = self.name
+        return TemplateResponse(request, "admin/reports.html", context)
 
     def manage_resource_view(self, request, resource):
         resource_config = RESOURCE_CONFIGS.get(resource)

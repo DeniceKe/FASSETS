@@ -509,6 +509,13 @@ button {
   align-items: end;
 }
 
+.fassets-report-filters {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(4, minmax(180px, 1fr)) auto;
+  align-items: end;
+}
+
 .fassets-filter-field {
   display: grid;
   gap: 8px;
@@ -526,6 +533,17 @@ button {
 
 .fassets-table-subtext {
   color: var(--fassets-admin-muted);
+}
+
+.fassets-report-count {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: rgba(29, 78, 216, 0.08);
+  color: var(--fassets-admin-brand-deep);
+  border: 1px solid var(--fassets-admin-line);
+  font-weight: 600;
 }
 
 .fassets-admin-status {
@@ -717,6 +735,10 @@ textarea::placeholder {
   }
 
   .fassets-inventory-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .fassets-report-filters {
     grid-template-columns: 1fr;
   }
 
