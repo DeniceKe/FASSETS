@@ -3,7 +3,7 @@ from django.db import transaction
 from rest_framework import serializers
 
 from accounts.models import Department, Faculty, Profile
-from assets.models import Asset, Category, Location, Supplier
+from assets.models import Asset, AssetMovement, Category, DepreciationRecord, Location, Supplier
 from allocations.models import Allocation
 from maintenance.models import Maintenance
 
@@ -216,3 +216,55 @@ class MaintenanceSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = ["reported_by", "created_at"]
+
+
+class AssetMovementSerializer(serializers.ModelSerializer):
+    asset_identifier = serializers.CharField(source="asset.asset_id", read_only=True)
+    asset_name = serializers.CharField(source="asset.name", read_only=True)
+    from_location_label = serializers.SerializerMethodField()
+    to_location_label = serializers.SerializerMethodField()
+    moved_by_username = serializers.CharField(source="moved_by.username", read_only=True)
+
+    class Meta:
+        model = AssetMovement
+        fields = [
+            "id",
+            "asset",
+            "asset_identifier",
+            "asset_name",
+            "from_location",
+            "from_location_label",
+            "to_location",
+            "to_location_label",
+            "moved_by",
+            "moved_by_username",
+            "moved_at",
+            "notes",
+        ]
+        read_only_fields = fields
+
+    def get_from_location_label(self, obj):
+        return str(obj.from_location)
+
+    def get_to_location_label(self, obj):
+        return str(obj.to_location)
+
+
+class DepreciationRecordSerializer(serializers.ModelSerializer):
+    asset_identifier = serializers.CharField(source="asset.asset_id", read_only=True)
+    asset_name = serializers.CharField(source="asset.name", read_only=True)
+
+    class Meta:
+        model = DepreciationRecord
+        fields = [
+            "id",
+            "asset",
+            "asset_identifier",
+            "asset_name",
+            "year",
+            "depreciation_amount",
+            "accumulated_depreciation",
+            "net_book_value",
+            "created_at",
+        ]
+        read_only_fields = fields

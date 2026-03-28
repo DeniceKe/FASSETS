@@ -6,7 +6,7 @@ from rest_framework.test import APIClient
 
 from accounts.models import Department, Faculty
 from accounts.roles import ROLE_COD, ROLE_LAB_TECHNICIAN, ROLE_LECTURER
-from assets.models import Asset, Category, Location, Supplier
+from assets.models import Asset, AssetMovement, Category, DepreciationRecord, Location, Supplier
 from maintenance.models import Maintenance
 
 User = get_user_model()
@@ -147,3 +147,51 @@ class MaintenanceWorkflowTests(BaseAPITestCase):
         asset.refresh_from_db()
         self.assertEqual(asset.status, "available")
         self.assertEqual(Maintenance.objects.get(pk=maintenance_id).reported_by, technician)
+
+
+class AssetLifecycleTests(BaseAPITestCase):
+    def test_asset_location_update_creates_movement_record(self):
+        cod = self.create_user("cod_user", ROLE_COD, self.comp_sci)
+        asset = self.create_asset("Projector", self.comp_lab, cod)
+
+        self.client.force_authenticate(cod)
+        response = self.client.patch(
+            f"/api/assets/{asset.id}/",
+            {"current_location": self.maths_office.id},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200, response.data)
+        movement = AssetMovement.objects.get(asset=asset)
+        self.assertEqual(movement.from_location, self.comp_lab)
+        self.assertEqual(movement.to_location, self.maths_office)
+        self.assertEqual(movement.moved_by, cod)
+
+    def test_asset_creation_generates_depreciation_records(self):
+        cod = self.create_user("cod_user", ROLE_COD, self.comp_sci)
+        asset = self.create_asset("Server Rack", self.comp_lab, cod)
+
+        records = DepreciationRecord.objects.filter(asset=asset)
+        self.assertTrue(records.exists())
+        self.assertEqual(records.first().year, 2026)
+
+    def test_reports_expose_movement_history_and_depreciation_summary(self):
+        admin = User.objects.create_superuser("admin", "admin@example.com", "pass12345Strong")
+        asset = self.create_asset("3D Printer", self.comp_lab, admin)
+        AssetMovement.objects.create(
+            asset=asset,
+            from_location=self.comp_lab,
+            to_location=self.maths_office,
+            moved_by=admin,
+            notes="Transferred for faculty demo.",
+        )
+
+        self.client.force_authenticate(admin)
+        movement_response = self.client.get("/api/reports/asset-movements/")
+        depreciation_response = self.client.get("/api/reports/depreciation-summary/")
+
+        self.assertEqual(movement_response.status_code, 200)
+        self.assertEqual(depreciation_response.status_code, 200)
+        self.assertEqual(movement_response.data[0]["asset_identifier"], asset.asset_id)
+        self.assertIn("totals", depreciation_response.data)
+        self.assertGreaterEqual(len(depreciation_response.data["records"]), 1)

@@ -86,9 +86,18 @@ class Allocation(models.Model):
 class AssetRequest(models.Model):
     asset = models.ForeignKey(Asset, on_delete=models.CASCADE, related_name="requests")
     requested_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="asset_requests")
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="asset_requests_reviewed",
+    )
     status = models.CharField(max_length=20, choices=REQUEST_STATUS, default="pending")
     message = models.TextField(blank=True)
+    decline_reason = models.TextField(blank=True)
     requested_at = models.DateTimeField(auto_now_add=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -103,6 +112,9 @@ class AssetRequest(models.Model):
         if self.asset.status != "available" and self.status == "pending":
             raise ValidationError("Only available assets can be requested.")
 
+        if self.status == "rejected" and not self.decline_reason.strip():
+            raise ValidationError("A decline reason is required when rejecting a request.")
+
         existing_pending = AssetRequest.objects.filter(
             asset=self.asset,
             requested_by=self.requested_by,
@@ -115,5 +127,7 @@ class AssetRequest(models.Model):
             raise ValidationError("You already have a pending request for this asset.")
 
     def save(self, *args, **kwargs):
+        if self.status != "rejected":
+            self.decline_reason = ""
         self.full_clean()
         super().save(*args, **kwargs)

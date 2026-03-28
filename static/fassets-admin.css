@@ -338,7 +338,8 @@ button {
 
 .fassets-model-list,
 .fassets-feed-list,
-.fassets-collection-stack {
+.fassets-collection-stack,
+.fassets-request-list {
   display: grid;
   gap: 12px;
 }
@@ -396,6 +397,61 @@ button {
   border-radius: 18px;
   background: var(--fassets-admin-surface-strong);
   border: 1px dashed var(--fassets-admin-line);
+}
+
+.fassets-request-card {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border-radius: 20px;
+  background: var(--fassets-admin-surface-strong);
+  border: 1px solid var(--fassets-admin-line);
+}
+
+.fassets-request-copy p,
+.fassets-request-meta,
+.fassets-request-note {
+  margin: 8px 0 0;
+  color: var(--fassets-admin-muted);
+}
+
+.fassets-request-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+}
+
+.fassets-request-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: start;
+}
+
+.fassets-request-actions form {
+  margin: 0;
+}
+
+.fassets-decline-form {
+  display: grid;
+  gap: 10px;
+}
+
+.fassets-decline-reason {
+  display: grid;
+  gap: 10px;
+  width: min(360px, 100%);
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(181, 68, 55, 0.05);
+  border: 1px solid rgba(181, 68, 55, 0.14);
+}
+
+.fassets-decline-reason textarea {
+  min-height: 92px;
+  resize: vertical;
 }
 
 .fassets-resource-form {
@@ -488,6 +544,16 @@ button {
   background: rgba(29, 78, 216, 0.09);
 }
 
+.fassets-admin-status.pending {
+  color: #7c4a00;
+  background: rgba(245, 158, 11, 0.14);
+}
+
+.fassets-admin-status.approved {
+  color: #0f766e;
+  background: rgba(16, 185, 129, 0.12);
+}
+
 .fassets-admin-status.allocated {
   color: #7c4a00;
   background: rgba(219, 234, 254, 0.95);
@@ -499,6 +565,11 @@ button {
 }
 
 .fassets-admin-status.disposed {
+  color: #b54437;
+  background: rgba(181, 68, 55, 0.12);
+}
+
+.fassets-admin-status.rejected {
   color: #b54437;
   background: rgba(181, 68, 55, 0.12);
 }

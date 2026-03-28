@@ -43,6 +43,64 @@
         </section>
 
         <section class="fassets-admin-card">
+          <div class="fassets-card-head" id="asset-requests">
+            <div>
+              <p class="fassets-eyebrow">Asset Requests</p>
+              <h3>Review pending user requests</h3>
+            </div>
+          </div>
+
+          {% if pending_asset_requests %}
+            <div class="fassets-request-list">
+              {% for asset_request in pending_asset_requests %}
+                <article class="fassets-request-card">
+                  <div class="fassets-request-copy">
+                    <div class="fassets-request-head">
+                      <strong>{{ asset_request.asset.asset_id }} - {{ asset_request.asset.name }}</strong>
+                      <span class="fassets-admin-status neutral">{{ asset_request.get_status_display }}</span>
+                    </div>
+                    <p>
+                      Requested by <strong>{{ asset_request.requested_by.get_full_name|default:asset_request.requested_by.username }}</strong>
+                      {% if asset_request.requested_by.profile.department %}
+                        from {{ asset_request.requested_by.profile.department.name }}
+                      {% endif %}
+                    </p>
+                    <p class="fassets-request-meta">Submitted {{ asset_request.requested_at|date:"M d, Y H:i" }}</p>
+                    {% if asset_request.message %}
+                      <p class="fassets-request-note">{{ asset_request.message }}</p>
+                    {% endif %}
+                  </div>
+
+                  <div class="fassets-request-actions">
+                    <form method="post" action="{% url 'admin:review_asset_request' asset_request.id %}">
+                      {% csrf_token %}
+                      <input type="hidden" name="action" value="approve">
+                      <button type="submit" class="button small">Approve</button>
+                    </form>
+
+                    <form method="post" action="{% url 'admin:review_asset_request' asset_request.id %}" class="fassets-decline-form" data-decline-form>
+                      {% csrf_token %}
+                      <input type="hidden" name="action" value="decline">
+                      <button type="button" class="button secondary small" data-decline-toggle>Decline</button>
+                      <div class="fassets-decline-reason" data-decline-panel hidden>
+                        <label for="decline-reason-{{ asset_request.id }}">Reason for declination</label>
+                        <textarea id="decline-reason-{{ asset_request.id }}" name="decline_reason" placeholder="Tell the requester why this asset request cannot be approved."></textarea>
+                        <button type="submit" class="button danger small">Submit Decline</button>
+                      </div>
+                    </form>
+                  </div>
+                </article>
+              {% endfor %}
+            </div>
+          {% else %}
+            <div class="fassets-empty-state">
+              <h3>No pending requests</h3>
+              <p>New asset requests will appear here for review as soon as users submit them.</p>
+            </div>
+          {% endif %}
+        </section>
+
+        <section class="fassets-admin-card">
           <div class="fassets-card-head">
             <div>
               <p class="fassets-eyebrow">Application Modules</p>
@@ -104,6 +162,10 @@
           <p class="fassets-eyebrow">Operational Snapshot</p>
           <h3>Live totals</h3>
           <div class="fassets-collection-stack">
+            <div class="fassets-collection-item">
+              <span>Pending Requests</span>
+              <strong>{{ pending_asset_requests_count }}</strong>
+            </div>
             {% for item in admin_collections %}
               <div class="fassets-collection-item">
                 <span>{{ item.label }}</span>
@@ -163,7 +225,69 @@
             {% endfor %}
           </div>
         </section>
+
+        <section class="fassets-admin-card">
+          <p class="fassets-eyebrow">Asset Movement</p>
+          <h3>Latest relocation history</h3>
+          <div class="fassets-feed-list">
+            {% for movement in recent_movements %}
+              <div class="fassets-feed-item">
+                <div>
+                  <strong>{{ movement.asset.asset_id }} - {{ movement.asset.name }}</strong>
+                  <span>{{ movement.from_location }} to {{ movement.to_location }}</span>
+                </div>
+                <span>{{ movement.moved_by.username }}</span>
+              </div>
+            {% empty %}
+              <p class="fassets-feed-empty">No recorded asset movements yet.</p>
+            {% endfor %}
+          </div>
+        </section>
+
+        <section class="fassets-admin-card">
+          <p class="fassets-eyebrow">Depreciation</p>
+          <h3>Asset value overview</h3>
+          <div class="fassets-collection-stack">
+            <div class="fassets-collection-item">
+              <span>Total Accumulated Depreciation</span>
+              <strong>{{ depreciation_totals.total_accumulated|default:0 }}</strong>
+            </div>
+            <div class="fassets-collection-item">
+              <span>Total Net Book Value</span>
+              <strong>{{ depreciation_totals.total_book_value|default:0 }}</strong>
+            </div>
+          </div>
+          <div class="fassets-feed-list" style="margin-top: 14px;">
+            {% for record in recent_depreciation_records %}
+              <div class="fassets-feed-item">
+                <strong>{{ record.asset.asset_id }} - {{ record.asset.name }}</strong>
+                <span>{{ record.year }} | NBV {{ record.net_book_value }}</span>
+              </div>
+            {% empty %}
+              <p class="fassets-feed-empty">No depreciation records generated yet.</p>
+            {% endfor %}
+          </div>
+        </section>
       </aside>
     </div>
   </section>
+
+  <script>
+    document.querySelectorAll('[data-decline-form]').forEach((form) => {
+      const toggle = form.querySelector('[data-decline-toggle]');
+      const panel = form.querySelector('[data-decline-panel]');
+
+      toggle.addEventListener('click', () => {
+        const shouldShow = panel.hasAttribute('hidden');
+        panel.toggleAttribute('hidden', !shouldShow);
+        toggle.textContent = shouldShow ? 'Cancel Decline' : 'Decline';
+        if (shouldShow) {
+          const textarea = panel.querySelector('textarea');
+          if (textarea) {
+            textarea.focus();
+          }
+        }
+      });
+    });
+  </script>
 {% endblock %}

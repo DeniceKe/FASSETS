@@ -63,6 +63,9 @@ def dashboard(request):
             status="pending",
         )
     }
+    recent_requests = AssetRequest.objects.select_related("asset", "reviewed_by").filter(
+        requested_by=request.user,
+    )[:6]
 
     return render(request, "dashboard.html", {
         "total_assets": total_assets,
@@ -77,6 +80,7 @@ def dashboard(request):
         "recent_maintenance": maintenance_qs.order_by("-scheduled_date")[:5],
         "department_assets": department_assets,
         "request_status_by_asset": request_status_by_asset,
+        "recent_requests": recent_requests,
         "department_distribution": department_distribution,
         "user_role": role.replace("_", " ").title() if role else "Unassigned",
         "user_department": department,
