@@ -2,10 +2,13 @@ import datetime
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+from django.urls import reverse
+from django.utils import timezone
 
 from accounts.models import Department, Faculty
 from assets.models import Asset, Category, Location, Supplier
 from allocations.models import AssetRequest
+from maintenance.models import Maintenance
 
 User = get_user_model()
 
@@ -71,3 +74,107 @@ class DashboardRequestTests(TestCase):
             AssetRequest.objects.filter(asset=self.visible_asset, requested_by=self.user, status="pending").count(),
             1,
         )
+
+    def test_user_dashboard_hides_admin_links_and_api_endpoint_monitoring(self):
+        self.client.force_login(self.user)
+        response = self.client.get("/dashboard/")
+
+        self.assertNotContains(response, "/api/reports/dashboard/")
+        self.assertNotContains(response, "Proposal report endpoints")
+        self.assertNotContains(response, 'href="/admin/"')
+        self.assertContains(response, "Your recent asset requests")
+
+    def test_admin_can_approve_pending_asset_request(self):
+        asset_request = AssetRequest.objects.create(
+            asset=self.visible_asset,
+            requested_by=self.user,
+            message="Please approve this request.",
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse("admin:review_asset_request", args=[asset_request.id]),
+            {"action": "approve"},
+        )
+
+        self.assertRedirects(response, reverse("admin:index"))
+        asset_request.refresh_from_db()
+        self.assertEqual(asset_request.status, "approved")
+        self.assertEqual(asset_request.reviewed_by, self.admin)
+        self.assertIsNotNone(asset_request.reviewed_at)
+        self.assertEqual(asset_request.decline_reason, "")
+
+    def test_admin_must_provide_decline_reason(self):
+        asset_request = AssetRequest.objects.create(
+            asset=self.visible_asset,
+            requested_by=self.user,
+            message="Please approve this request.",
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse("admin:review_asset_request", args=[asset_request.id]),
+            {"action": "decline", "decline_reason": ""},
+        )
+
+        self.assertRedirects(response, reverse("admin:index"))
+        asset_request.refresh_from_db()
+        self.assertEqual(asset_request.status, "pending")
+
+    def test_admin_can_decline_with_reason(self):
+        asset_request = AssetRequest.objects.create(
+            asset=self.visible_asset,
+            requested_by=self.user,
+            message="Please approve this request.",
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse("admin:review_asset_request", args=[asset_request.id]),
+            {"action": "decline", "decline_reason": "Asset is reserved for a scheduled lab session."},
+        )
+
+        self.assertRedirects(response, reverse("admin:index"))
+        asset_request.refresh_from_db()
+        self.assertEqual(asset_request.status, "rejected")
+        self.assertEqual(asset_request.decline_reason, "Asset is reserved for a scheduled lab session.")
+        self.assertEqual(asset_request.reviewed_by, self.admin)
+
+    def test_admin_reports_page_shows_inventory_requests_and_maintenance(self):
+        technician = User.objects.create_user("techuser", password="pass12345Strong")
+        technician.profile.department = self.department
+        technician.profile.role = "lab_technician"
+        technician.profile.save()
+
+        AssetRequest.objects.create(
+            asset=self.visible_asset,
+            requested_by=self.user,
+            status="rejected",
+            reviewed_by=self.admin,
+            reviewed_at=timezone.now(),
+            decline_reason="Asset is already committed to another class.",
+            message="Need this for a lesson.",
+        )
+        Maintenance.objects.create(
+            asset=self.visible_asset,
+            maintenance_type="corrective",
+            scheduled_date=datetime.date(2026, 3, 20),
+            completed_date=datetime.date(2026, 3, 21),
+            technician=technician,
+            reported_by=self.admin,
+            description="Battery was failing to hold charge.",
+            resolution_notes="Battery replaced and charging cycle tested.",
+            status="completed",
+        )
+
+        self.client.force_login(self.admin)
+        response = self.client.get(reverse("admin:reports"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Whole asset inventory")
+        self.assertContains(response, self.visible_asset.asset_id)
+        self.assertContains(response, "Asset requests and decisions")
+        self.assertContains(response, "Asset is already committed to another class.")
+        self.assertContains(response, "Serviced assets, work done, and assigned technician")
+        self.assertContains(response, "techuser")
+        self.assertContains(response, "Battery replaced and charging cycle tested.")

@@ -1,8 +1,9 @@
-from django.db.models.signals import pre_save
+from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.utils import timezone
 
 from .models import Asset
+from .services import sync_asset_depreciation
 
 @receiver(pre_save, sender=Asset)
 def set_asset_id(sender, instance: Asset, **kwargs):
@@ -29,3 +30,8 @@ def set_asset_id(sender, instance: Asset, **kwargs):
         next_num = 1
 
     instance.asset_id = f"{prefix}{next_num:05d}"
+
+
+@receiver(post_save, sender=Asset)
+def sync_depreciation_records(sender, instance: Asset, **kwargs):
+    sync_asset_depreciation(instance)

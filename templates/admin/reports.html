@@ -1,0 +1,245 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+  <section class="fassets-admin-dashboard">
+    <div class="fassets-admin-hero">
+      <div>
+        <p class="fassets-eyebrow">Reports Center</p>
+        <h2>Review inventory, requests, and maintenance activity from one admin page.</h2>
+        <p>These reports are designed for administrative follow-up, approval tracking, service history review, and inventory oversight.</p>
+      </div>
+      <div class="fassets-hero-actions">
+        <a class="fassets-cta" href="{% url 'admin:index' %}">Back To Admin Home</a>
+        <a class="fassets-cta secondary" href="{% url 'admin:inventory' %}">Open Inventory</a>
+      </div>
+    </div>
+
+    <section class="fassets-admin-card">
+      <div class="fassets-card-head">
+        <div>
+          <p class="fassets-eyebrow">Report Filters</p>
+          <h3>Narrow the reports below</h3>
+        </div>
+      </div>
+
+      <form method="get" class="fassets-report-filters">
+        <div class="fassets-filter-field">
+          <label for="inventory-status">Inventory Status</label>
+          <select id="inventory-status" name="inventory_status">
+            <option value="">All Inventory Status</option>
+            <option value="available" {% if inventory_status == "available" %}selected{% endif %}>Available</option>
+            <option value="allocated" {% if inventory_status == "allocated" %}selected{% endif %}>Allocated</option>
+            <option value="maintenance" {% if inventory_status == "maintenance" %}selected{% endif %}>Under Maintenance</option>
+            <option value="disposed" {% if inventory_status == "disposed" %}selected{% endif %}>Disposed</option>
+          </select>
+        </div>
+
+        <div class="fassets-filter-field">
+          <label for="inventory-category">Inventory Category</label>
+          <select id="inventory-category" name="inventory_category">
+            <option value="">All Categories</option>
+            {% for category in categories %}
+              <option value="{{ category.id }}" {% if inventory_category|stringformat:"s" == category.id|stringformat:"s" %}selected{% endif %}>{{ category.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="fassets-filter-field">
+          <label for="request-status">Request Status</label>
+          <select id="request-status" name="request_status">
+            <option value="">All Request Status</option>
+            <option value="pending" {% if request_status == "pending" %}selected{% endif %}>Pending</option>
+            <option value="approved" {% if request_status == "approved" %}selected{% endif %}>Approved</option>
+            <option value="rejected" {% if request_status == "rejected" %}selected{% endif %}>Denied</option>
+            <option value="cancelled" {% if request_status == "cancelled" %}selected{% endif %}>Cancelled</option>
+          </select>
+        </div>
+
+        <div class="fassets-filter-field">
+          <label for="maintenance-status">Maintenance Status</label>
+          <select id="maintenance-status" name="maintenance_status">
+            <option value="">All Maintenance Status</option>
+            <option value="scheduled" {% if maintenance_status == "scheduled" %}selected{% endif %}>Scheduled</option>
+            <option value="in_progress" {% if maintenance_status == "in_progress" %}selected{% endif %}>In Progress</option>
+            <option value="completed" {% if maintenance_status == "completed" %}selected{% endif %}>Completed</option>
+            <option value="cancelled" {% if maintenance_status == "cancelled" %}selected{% endif %}>Cancelled</option>
+          </select>
+        </div>
+
+        <div class="fassets-filter-actions">
+          <button type="submit">Apply Filters</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="fassets-admin-card">
+      <div class="fassets-card-head">
+        <div>
+          <p class="fassets-eyebrow">Inventory Report</p>
+          <h3>Whole asset inventory</h3>
+        </div>
+        <span class="fassets-report-count">{{ inventory_assets|length }} asset{{ inventory_assets|length|pluralize }}</span>
+      </div>
+
+      {% if inventory_assets %}
+        <div class="fassets-admin-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Asset ID</th>
+                <th>Name</th>
+                <th>Category</th>
+                <th>Department</th>
+                <th>Location</th>
+                <th>Status</th>
+                <th>Condition</th>
+                <th>Purchase Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for asset in inventory_assets %}
+                <tr>
+                  <td>{{ asset.asset_id }}</td>
+                  <td>{{ asset.name }}</td>
+                  <td>{{ asset.category.name }}</td>
+                  <td>{{ asset.current_location.department.name }}</td>
+                  <td>{{ asset.current_location }}</td>
+                  <td><span class="fassets-admin-status {{ asset.status }}">{{ asset.get_status_display }}</span></td>
+                  <td>{{ asset.get_condition_display }}</td>
+                  <td>{{ asset.purchase_date }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="fassets-empty-state">
+          <h3>No assets found</h3>
+          <p>The current inventory filters did not return any records.</p>
+        </div>
+      {% endif %}
+    </section>
+
+    <section class="fassets-admin-card">
+      <div class="fassets-card-head">
+        <div>
+          <p class="fassets-eyebrow">Request Report</p>
+          <h3>Asset requests and decisions</h3>
+        </div>
+        <span class="fassets-report-count">{{ asset_requests_report|length }} request{{ asset_requests_report|length|pluralize }}</span>
+      </div>
+
+      {% if asset_requests_report %}
+        <div class="fassets-admin-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Asset</th>
+                <th>Requested By</th>
+                <th>Request Date</th>
+                <th>Status</th>
+                <th>Reviewed By</th>
+                <th>Decision Date</th>
+                <th>Reason / Note</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for asset_request in asset_requests_report %}
+                <tr>
+                  <td>{{ asset_request.asset.asset_id }} - {{ asset_request.asset.name }}</td>
+                  <td>{{ asset_request.requested_by.get_full_name|default:asset_request.requested_by.username }}</td>
+                  <td>{{ asset_request.requested_at|date:"M d, Y H:i" }}</td>
+                  <td>
+                    {% if asset_request.status == "rejected" %}
+                      <span class="fassets-admin-status rejected">Denied</span>
+                    {% else %}
+                      <span class="fassets-admin-status {{ asset_request.status }}">{{ asset_request.get_status_display }}</span>
+                    {% endif %}
+                  </td>
+                  <td>{{ asset_request.reviewed_by|default:"-" }}</td>
+                  <td>{% if asset_request.reviewed_at %}{{ asset_request.reviewed_at|date:"M d, Y H:i" }}{% else %}-{% endif %}</td>
+                  <td>
+                    {% if asset_request.decline_reason %}
+                      {{ asset_request.decline_reason }}
+                    {% elif asset_request.message %}
+                      {{ asset_request.message }}
+                    {% else %}
+                      -
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="fassets-empty-state">
+          <h3>No asset requests found</h3>
+          <p>The current request filters did not return any records.</p>
+        </div>
+      {% endif %}
+    </section>
+
+    <section class="fassets-admin-card">
+      <div class="fassets-card-head">
+        <div>
+          <p class="fassets-eyebrow">Maintenance Report</p>
+          <h3>Serviced assets, work done, and assigned technician</h3>
+        </div>
+        <span class="fassets-report-count">{{ maintenance_report|length }} record{{ maintenance_report|length|pluralize }}</span>
+      </div>
+
+      {% if maintenance_report %}
+        <div class="fassets-admin-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Asset</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Service Date</th>
+                <th>Technician</th>
+                <th>Reported By</th>
+                <th>Issue / Work Requested</th>
+                <th>What Was Fixed</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in maintenance_report %}
+                <tr>
+                  <td>{{ item.asset.asset_id }} - {{ item.asset.name }}</td>
+                  <td>{{ item.get_maintenance_type_display }}</td>
+                  <td><span class="fassets-admin-status {{ item.status }}">{{ item.get_status_display }}</span></td>
+                  <td>
+                    {% if item.completed_date %}
+                      {{ item.completed_date }}
+                    {% else %}
+                      {{ item.scheduled_date }}
+                    {% endif %}
+                  </td>
+                  <td>{{ item.technician|default:"Not assigned" }}</td>
+                  <td>{{ item.reported_by|default:"-" }}</td>
+                  <td>{{ item.description }}</td>
+                  <td>
+                    {% if item.resolution_notes %}
+                      {{ item.resolution_notes }}
+                    {% elif item.parts_replaced %}
+                      Parts replaced: {{ item.parts_replaced }}
+                    {% else %}
+                      Pending service resolution
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="fassets-empty-state">
+          <h3>No maintenance records found</h3>
+          <p>The current maintenance filters did not return any records.</p>
+        </div>
+      {% endif %}
+    </section>
+  </section>
+{% endblock %}

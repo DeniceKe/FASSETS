@@ -4,11 +4,11 @@
 {% block content %}
 <section class="page-card">
   <div class="section">
-    <p class="eyebrow">Operations Dashboard</p>
+    <p class="eyebrow">Dashboard</p>
     <div class="grid two">
       <div>
-        <h1>Faculty asset oversight, live from the backend.</h1>
-        <p>This dashboard surfaces the current inventory position, active allocations, maintenance workload, and department distribution without changing your existing user base.</p>
+        <h1>Welcome to your asset workspace.</h1>
+        <p>Check what is available in your department, follow request progress, and stay up to date on asset activity without exposing backend tools in the user area.</p>
         <div class="inline-meta">
           <span class="chip">Role: {{ user_role }}</span>
           <span class="chip">Department: {% if user_department %}{{ user_department.name }}{% else %}All Departments{% endif %}</span>
@@ -17,11 +17,11 @@
       </div>
       <div class="panel accent-panel">
         <p class="eyebrow" style="color: rgba(255,255,255,0.72);">Status</p>
-        <h2 style="color: #fff;">Backend-connected dashboard</h2>
-        <p>The summary cards below are rendered from server-side queries, and the endpoint panel uses the proposal report APIs directly from the browser session.</p>
+        <h2 style="color: #fff;">Request assets with less friction</h2>
+        <p>Browse department inventory below, submit a request when an item is available, and track whether it is pending, approved, or declined.</p>
         <div class="inline-meta">
-          <span class="pill" style="background: rgba(255,255,255,0.12); color: #fff; border-color: rgba(255,255,255,0.14);">Session-auth API</span>
           <span class="pill" style="background: rgba(255,255,255,0.12); color: #fff; border-color: rgba(255,255,255,0.14);">Department-aware</span>
+          <span class="pill" style="background: rgba(255,255,255,0.12); color: #fff; border-color: rgba(255,255,255,0.14);">Request tracking</span>
         </div>
       </div>
     </div>
@@ -64,7 +64,11 @@
             <p class="eyebrow">Recent Assets</p>
             <h2>Newest inventory records</h2>
           </div>
-          <a class="button-link secondary" href="{% url 'assets:asset_list' %}">Open Inventory</a>
+          {% if user.is_staff %}
+            <a class="button-link secondary" href="{% url 'assets:asset_list' %}">Open Inventory</a>
+          {% else %}
+            <a class="button-link secondary" href="#department-assets">Browse Department Assets</a>
+          {% endif %}
         </div>
         {% if recent_assets %}
           <div class="list-stack">
@@ -180,38 +184,62 @@
   </div>
 
   <div class="section">
-    <p class="eyebrow">Endpoint Monitor</p>
-    <h2>Proposal report endpoints</h2>
-    <p>The cards below call the authenticated API endpoints directly so the frontend can visibly confirm the backend routes are responding.</p>
-    <div class="endpoint-grid">
-      <div class="endpoint-card" data-endpoint="/api/reports/dashboard/">
-        <strong>Dashboard Report</strong>
-        <p class="muted">Live totals and summary counts.</p>
-        <code>/api/reports/dashboard/</code>
-        <p class="muted endpoint-result">Checking endpoint...</p>
+    <div class="grid two">
+      <div class="panel">
+        <p class="eyebrow">Requests</p>
+        <h2>Your recent asset requests</h2>
+        {% if recent_requests %}
+          <div class="request-summary">
+            {% for asset_request in recent_requests %}
+              <div class="request-card">
+                <strong>{{ asset_request.asset.asset_id }} - {{ asset_request.asset.name }}</strong>
+                <div class="inline-meta">
+                  <span class="status {{ asset_request.status }}">{{ asset_request.get_status_display }}</span>
+                  <span class="chip">Submitted {{ asset_request.requested_at|date:"M d, Y H:i" }}</span>
+                  {% if asset_request.reviewed_at %}
+                    <span class="chip">Reviewed {{ asset_request.reviewed_at|date:"M d, Y H:i" }}</span>
+                  {% endif %}
+                </div>
+                {% if asset_request.decline_reason %}
+                  <p><strong>Decline reason:</strong> {{ asset_request.decline_reason }}</p>
+                {% elif asset_request.status == "approved" %}
+                  <p>Your request has been approved by the admin team.</p>
+                {% else %}
+                  <p>Your request is waiting for admin review.</p>
+                {% endif %}
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="empty-state">
+            <h3>No requests yet</h3>
+            <p>Once you request an available asset, the status will appear here.</p>
+          </div>
+        {% endif %}
       </div>
-      <div class="endpoint-card" data-endpoint="/api/reports/assets-by-department/">
-        <strong>Assets by Department</strong>
-        <p class="muted">Distribution breakdown across departments.</p>
-        <code>/api/reports/assets-by-department/</code>
-        <p class="muted endpoint-result">Checking endpoint...</p>
-      </div>
-      <div class="endpoint-card" data-endpoint="/api/reports/assigned-assets/">
-        <strong>Assigned Assets</strong>
-        <p class="muted">Open assignments for the current scope.</p>
-        <code>/api/reports/assigned-assets/</code>
-        <p class="muted endpoint-result">Checking endpoint...</p>
-      </div>
-      <div class="endpoint-card" data-endpoint="/api/reports/maintenance-history/">
-        <strong>Maintenance History</strong>
-        <p class="muted">Current maintenance records in scope.</p>
-        <code>/api/reports/maintenance-history/</code>
-        <p class="muted endpoint-result">Checking endpoint...</p>
+
+      <div class="panel">
+        <p class="eyebrow">Guidance</p>
+        <h2>How requests work</h2>
+        <div class="list-stack">
+          <div class="list-item">
+            <strong>1. Find an available asset</strong>
+            <span class="muted">Only assets visible to your department can be requested from this dashboard.</span>
+          </div>
+          <div class="list-item">
+            <strong>2. Submit your request</strong>
+            <span class="muted">A pending state appears immediately so you know the request was received.</span>
+          </div>
+          <div class="list-item">
+            <strong>3. Wait for review</strong>
+            <span class="muted">If a request is declined, the admin-provided reason is shown here for clarity.</span>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
-  <div class="section">
+  <div class="section" id="department-assets">
     <div class="toolbar">
       <div>
         <p class="eyebrow">Department Assets</p>
@@ -269,42 +297,4 @@
     {% endif %}
   </div>
 </section>
-
-<script>
-  async function probeEndpoint(card) {
-    const endpoint = card.dataset.endpoint;
-    const result = card.querySelector('.endpoint-result');
-
-    try {
-      const response = await fetch(endpoint, {
-        headers: { 'X-Requested-With': 'XMLHttpRequest' },
-        credentials: 'same-origin',
-      });
-
-      if (!response.ok) {
-        result.textContent = `Unavailable (${response.status})`;
-        result.style.color = '#b54437';
-        return;
-      }
-
-      const data = await response.json();
-      let summary = 'Endpoint responding';
-
-      if (Array.isArray(data)) {
-        summary = `${data.length} record${data.length === 1 ? '' : 's'} returned`;
-      } else if (typeof data === 'object' && data !== null) {
-        const pairs = Object.entries(data).slice(0, 2).map(([key, value]) => `${key}: ${value}`);
-        summary = pairs.join(' | ') || 'Endpoint responding';
-      }
-
-      result.textContent = summary;
-      result.style.color = '#0c6b58';
-    } catch (error) {
-      result.textContent = 'Request failed';
-      result.style.color = '#b54437';
-    }
-  }
-
-  document.querySelectorAll('.endpoint-card').forEach(probeEndpoint);
-</script>
 {% endblock %}

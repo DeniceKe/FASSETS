@@ -1,9 +1,12 @@
 from django.contrib.admin import AdminSite
 from django.contrib.auth import get_user_model
-from django.db.models import Q
+from django.contrib import messages
+from django.db.models import Q, Sum
 from django.http import Http404
 from django.template.response import TemplateResponse
 from django.urls import path, reverse
+from django.shortcuts import get_object_or_404, redirect
+from django.utils import timezone
 
 
 ROLE_OPTIONS = [
@@ -343,7 +346,13 @@ class FAssetsAdminSite(AdminSite):
         urls = super().get_urls()
         custom_urls = [
             path("inventory/", self.admin_view(self.inventory_view), name="inventory"),
+            path("reports/", self.admin_view(self.reports_view), name="reports"),
             path("manage/<slug:resource>/", self.admin_view(self.manage_resource_view), name="manage_resource"),
+            path(
+                "asset-requests/<int:request_id>/review/",
+                self.admin_view(self.review_asset_request_view),
+                name="review_asset_request",
+            ),
         ]
         return custom_urls + urls
 
@@ -351,8 +360,8 @@ class FAssetsAdminSite(AdminSite):
         context = super().each_context(request)
 
         from accounts.models import Department, Faculty
-        from allocations.models import Allocation
-        from assets.models import Asset, Category, Supplier
+        from allocations.models import Allocation, AssetRequest
+        from assets.models import Asset, AssetMovement, Category, DepreciationRecord, Supplier
         from maintenance.models import Maintenance
 
         User = get_user_model()
@@ -372,6 +381,8 @@ class FAssetsAdminSite(AdminSite):
                     {"label": "Manage Users", "url": reverse("admin:manage_resource", kwargs={"resource": "users"})},
                     {"label": "Manage Allocations", "url": reverse("admin:manage_resource", kwargs={"resource": "allocations"})},
                     {"label": "Manage Maintenance", "url": reverse("admin:manage_resource", kwargs={"resource": "maintenance"})},
+                    {"label": "Open Reports", "url": reverse("admin:reports")},
+                    {"label": "Review Requests", "url": f"{reverse('admin:index')}#asset-requests"},
                 ],
                 "admin_collections": [
                     {"label": "Faculties", "value": Faculty.objects.count()},
@@ -379,8 +390,29 @@ class FAssetsAdminSite(AdminSite):
                     {"label": "Open Maintenance", "value": Maintenance.objects.filter(status__in=["scheduled", "in_progress"]).count()},
                     {"label": "Active Allocations", "value": Allocation.objects.filter(status__in=["active", "overdue"]).count()},
                 ],
+                "pending_asset_requests_count": AssetRequest.objects.filter(status="pending").count(),
+                "pending_asset_requests": AssetRequest.objects.select_related(
+                    "asset",
+                    "requested_by",
+                    "requested_by__profile",
+                    "requested_by__profile__department",
+                )
+                .filter(status="pending")
+                .order_by("-requested_at")[:10],
                 "recent_assets": Asset.objects.select_related("category", "current_location")
                 .order_by("-created_at")[:6],
+                "recent_movements": AssetMovement.objects.select_related(
+                    "asset",
+                    "from_location",
+                    "to_location",
+                    "moved_by",
+                ).order_by("-moved_at")[:6],
+                "depreciation_totals": DepreciationRecord.objects.aggregate(
+                    total_accumulated=Sum("accumulated_depreciation"),
+                    total_book_value=Sum("net_book_value"),
+                ),
+                "recent_depreciation_records": DepreciationRecord.objects.select_related("asset")
+                .order_by("-year", "asset__asset_id")[:6],
                 "recent_allocations": Allocation.objects.select_related("asset", "allocated_to", "allocated_to_lab")
                 .order_by("-allocation_date")[:6],
                 "recent_maintenance": Maintenance.objects.select_related("asset", "technician")
@@ -444,6 +476,60 @@ class FAssetsAdminSite(AdminSite):
         request.current_app = self.name
         return TemplateResponse(request, "admin/inventory.html", context)
 
+    def reports_view(self, request):
+        from allocations.models import AssetRequest
+        from assets.models import Asset, Category
+        from maintenance.models import Maintenance
+
+        inventory_qs = Asset.objects.select_related(
+            "category",
+            "supplier",
+            "current_location",
+            "current_location__department",
+        ).order_by("asset_id")
+        requests_qs = AssetRequest.objects.select_related(
+            "asset",
+            "requested_by",
+            "reviewed_by",
+        ).order_by("-requested_at")
+        maintenance_qs = Maintenance.objects.select_related(
+            "asset",
+            "technician",
+            "reported_by",
+        ).order_by("-scheduled_date", "-created_at")
+
+        inventory_status = request.GET.get("inventory_status", "").strip()
+        inventory_category = request.GET.get("inventory_category", "").strip()
+        request_status = request.GET.get("request_status", "").strip()
+        maintenance_status = request.GET.get("maintenance_status", "").strip()
+
+        if inventory_status:
+            inventory_qs = inventory_qs.filter(status=inventory_status)
+
+        if inventory_category:
+            inventory_qs = inventory_qs.filter(category_id=inventory_category)
+
+        if request_status:
+            requests_qs = requests_qs.filter(status=request_status)
+
+        if maintenance_status:
+            maintenance_qs = maintenance_qs.filter(status=maintenance_status)
+
+        context = {
+            **self.each_context(request),
+            "title": "Reports",
+            "inventory_assets": inventory_qs,
+            "asset_requests_report": requests_qs,
+            "maintenance_report": maintenance_qs,
+            "categories": Category.objects.all().order_by("name"),
+            "inventory_status": inventory_status,
+            "inventory_category": inventory_category,
+            "request_status": request_status,
+            "maintenance_status": maintenance_status,
+        }
+        request.current_app = self.name
+        return TemplateResponse(request, "admin/reports.html", context)
+
     def manage_resource_view(self, request, resource):
         resource_config = RESOURCE_CONFIGS.get(resource)
         if not resource_config:
@@ -458,3 +544,55 @@ class FAssetsAdminSite(AdminSite):
         }
         request.current_app = self.name
         return TemplateResponse(request, "admin/resource_manager.html", context)
+
+    def review_asset_request_view(self, request, request_id):
+        if request.method != "POST":
+            raise Http404("Review action not available.")
+
+        asset_request = get_object_or_404(
+            self._get_asset_request_queryset(),
+            pk=request_id,
+        )
+        action = request.POST.get("action", "").strip()
+        decline_reason = request.POST.get("decline_reason", "").strip()
+
+        if asset_request.status != "pending":
+            messages.info(request, "This request has already been reviewed.")
+            return redirect("admin:index")
+
+        if action == "approve":
+            asset_request.status = "approved"
+            asset_request.reviewed_by = request.user
+            asset_request.reviewed_at = timezone.now()
+            asset_request.save(update_fields=["status", "reviewed_by", "reviewed_at", "decline_reason", "updated_at"])
+            messages.success(request, f"Approved request for {asset_request.asset.name}.")
+            return redirect("admin:index")
+
+        if action == "decline":
+            if not decline_reason:
+                messages.error(request, "Please provide a reason before declining a request.")
+                return redirect("admin:index")
+
+            asset_request.status = "rejected"
+            asset_request.decline_reason = decline_reason
+            asset_request.reviewed_by = request.user
+            asset_request.reviewed_at = timezone.now()
+            asset_request.save(
+                update_fields=["status", "decline_reason", "reviewed_by", "reviewed_at", "updated_at"]
+            )
+            messages.success(request, f"Declined request for {asset_request.asset.name}.")
+            return redirect("admin:index")
+
+        messages.error(request, "Unknown review action.")
+        return redirect("admin:index")
+
+    @staticmethod
+    def _get_asset_request_queryset():
+        from allocations.models import AssetRequest
+
+        return AssetRequest.objects.select_related(
+            "asset",
+            "requested_by",
+            "requested_by__profile",
+            "requested_by__profile__department",
+        )

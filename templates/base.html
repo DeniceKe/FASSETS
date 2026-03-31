@@ -312,8 +312,11 @@
     .status.maintenance,
     .status.in_progress,
     .status.scheduled { color: #1c5272; background: rgba(52, 126, 173, 0.12); }
+    .status.pending { color: #7c4a00; background: rgba(245, 158, 11, 0.14); }
+    .status.approved { color: #0f766e; background: rgba(16, 185, 129, 0.12); }
     .status.disposed,
-    .status.cancelled { color: var(--danger); background: rgba(181, 68, 55, 0.12); }
+    .status.cancelled,
+    .status.rejected { color: var(--danger); background: rgba(181, 68, 55, 0.12); }
     .status.returned,
     .status.completed { color: #5d5d5d; background: rgba(120,120,120,0.1); }
     .status.overdue { color: var(--danger); background: rgba(181, 68, 55, 0.12); }
@@ -343,22 +346,22 @@
     .list-item strong { font-size: 1rem; }
 
     .muted { color: var(--muted); }
-    .endpoint-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
-    .endpoint-card {
+    .request-summary {
+      display: grid;
+      gap: 12px;
+    }
+
+    .request-card {
+      display: grid;
+      gap: 8px;
       padding: 16px;
       border-radius: 18px;
       border: 1px solid var(--line);
-      background: rgba(255,255,255,0.58);
+      background: rgba(255,255,255,0.62);
     }
 
-    .endpoint-card code {
-      display: inline-block;
-      margin-top: 8px;
-      padding: 6px 8px;
-      border-radius: 10px;
-      background: rgba(29, 78, 216, 0.08);
-      color: var(--brand-deep);
-      word-break: break-all;
+    .request-card p {
+      margin-bottom: 0;
     }
 
     .login-shell {
@@ -509,7 +512,9 @@
 
       <div class="nav-links">
         <a class="nav-link {% if current_name == 'about' %}active{% endif %}" href="{% url 'assets:about' %}">About</a>
-        <a class="nav-link" href="/admin/">Admin</a>
+        {% if user.is_staff %}
+          <a class="nav-link" href="/admin/">Admin</a>
+        {% endif %}
       </div>
 
       <div class="user-panel">
