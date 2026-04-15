@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Security Check Required | FASSETS{% endblock %}
+
+{% block content %}
+<section class="login-shell">
+  <div class="login-layout">
+    <div class="login-intro">
+      <p class="eyebrow" style="color: rgba(255,255,255,0.78);">Security Check</p>
+      <h1>Your request could not be verified.</h1>
+      <p>FASSETS blocked this submission because the browser security token was missing, expired, or no longer matched the current session.</p>
+    </div>
+
+    <div class="login-form-wrap">
+      <p class="eyebrow">Request Blocked</p>
+      <h2>Please reload and try again</h2>
+      <p>Refreshing the page will generate a new secure token for your next request.</p>
+
+      {% if reason %}
+        <div class="alert">
+          <strong>Technical detail:</strong> {{ reason }}
+        </div>
+      {% endif %}
+
+      <div class="inline-meta" style="margin-top: 14px;">
+        <a class="button-link" href="{% url 'login' %}">Return to Login</a>
+        <a class="button-link secondary" href="{% url 'assets:about' %}">Open About Page</a>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

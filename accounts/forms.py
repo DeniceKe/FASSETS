@@ -1,6 +1,7 @@
 from django import forms
 from django.contrib.auth import get_user_model
 from django.contrib.auth.forms import UserCreationForm
+from assets.models import Location
 
 from .models import (
     Department,
@@ -68,3 +69,59 @@ class SignUpForm(UserCreationForm):
             profile.department = self.cleaned_data["department"]
             profile.save()
         return user
+
+
+class ProfilePhotoForm(forms.ModelForm):
+    class Meta:
+        model = Profile
+        fields = ("photo",)
+
+
+class AccountProfileForm(forms.ModelForm):
+    first_name = forms.CharField(max_length=150, required=True)
+    last_name = forms.CharField(max_length=150, required=True)
+    email = forms.EmailField(required=True)
+
+    class Meta:
+        model = Profile
+        fields = (
+            "first_name",
+            "last_name",
+            "email",
+            "phone_number",
+            "staff_location",
+            "photo",
+        )
+
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop("user")
+        super().__init__(*args, **kwargs)
+        self.fields["phone_number"].required = True
+        self.fields["photo"].required = False
+        self.fields["staff_location"].required = False
+        self.fields["staff_location"].label = "Office / Lab"
+
+        self.fields["first_name"].initial = self.user.first_name
+        self.fields["last_name"].initial = self.user.last_name
+        self.fields["email"].initial = self.user.email
+
+        department = getattr(self.instance, "department", None)
+        if department:
+            self.fields["staff_location"].queryset = Location.objects.filter(department=department).order_by("building", "room")
+        else:
+            self.fields["staff_location"].queryset = Location.objects.none()
+
+        if getattr(self.instance, "user_type", "") != USER_TYPE_STAFF:
+            self.fields.pop("staff_location")
+
+    def save(self, commit=True):
+        profile = super().save(commit=False)
+        self.user.first_name = self.cleaned_data["first_name"]
+        self.user.last_name = self.cleaned_data["last_name"]
+        self.user.email = self.cleaned_data["email"]
+
+        if commit:
+            self.user.save(update_fields=["first_name", "last_name", "email"])
+            profile.save()
+
+        return profile

@@ -1,14 +1,19 @@
 from django.contrib.auth import get_user_model
+from django.db import connection
 from django.db.models import Count, Q, Sum
-from rest_framework import permissions, viewsets
+from rest_framework import permissions, status, viewsets
+from rest_framework.decorators import action
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from accounts.audit import flatten_field_names, log_audit_event
 from accounts.models import Department, Faculty
 from accounts.roles import (
     ROLE_ADMIN,
     ROLE_COD,
     ROLE_DEAN,
+    ROLE_INTERNAL_AUDITOR,
     ROLE_LAB_TECHNICIAN,
     ROLE_LECTURER,
     infer_user_role,
@@ -16,7 +21,7 @@ from accounts.roles import (
 )
 from allocations.models import Allocation
 from assets.models import Asset, AssetMovement, Category, DepreciationRecord, Location, Supplier
-from assets.services import record_asset_movement, sync_asset_depreciation
+from assets.services import record_asset_movement, sync_asset_depreciation, sync_asset_disposal_state
 from maintenance.models import Maintenance
 
 from .serializers import (
@@ -65,22 +70,70 @@ class ScopedQuerysetMixin:
         department = self.user_department()
         role = infer_user_role(self.request.user)
 
-        if self.request.user.is_superuser or role in {ROLE_ADMIN, ROLE_DEAN}:
+        if self.request.user.is_superuser or role in {ROLE_ADMIN, ROLE_DEAN, ROLE_INTERNAL_AUDITOR}:
             return queryset
 
         if department is None:
             return queryset.none()
 
-        return queryset.filter(**{department_lookup: department})
+        lookup_tail = department_lookup.rsplit("__", 1)[-1]
+        lookup_value = department.pk if lookup_tail in {"id", "pk"} else department
+        return queryset.filter(**{department_lookup: lookup_value})
 
 
-class FacultyViewSet(ScopedQuerysetMixin, viewsets.ModelViewSet):
+class AuditedModelViewSet(viewsets.ModelViewSet):
+    def audit_metadata_from_serializer(self, serializer):
+        field_names = sorted(flatten_field_names(getattr(serializer, "validated_data", {})))
+        return {"fields": field_names} if field_names else {}
+
+    def log_create_audit(self, instance, serializer):
+        log_audit_event(
+            actor=self.request.user,
+            action="create",
+            instance=instance,
+            source=self.request.path,
+            metadata=self.audit_metadata_from_serializer(serializer),
+        )
+
+    def log_update_audit(self, instance, serializer):
+        log_audit_event(
+            actor=self.request.user,
+            action="update",
+            instance=instance,
+            source=self.request.path,
+            metadata=self.audit_metadata_from_serializer(serializer),
+        )
+
+    def perform_create(self, serializer):
+        instance = serializer.save()
+        self.log_create_audit(instance, serializer)
+
+    def perform_update(self, serializer):
+        instance = serializer.save()
+        self.log_update_audit(instance, serializer)
+
+    def perform_destroy(self, instance):
+        model_class = instance.__class__
+        object_id = instance.pk
+        object_repr = str(instance)
+        instance.delete()
+        log_audit_event(
+            actor=self.request.user,
+            action="delete",
+            model_class=model_class,
+            object_id=object_id,
+            object_repr=object_repr,
+            source=self.request.path,
+        )
+
+
+class FacultyViewSet(ScopedQuerysetMixin, AuditedModelViewSet):
     queryset = Faculty.objects.all().order_by("name")
     serializer_class = FacultySerializer
     permission_classes = [RolePermission]
     allowed_roles = {
-        "list": [ROLE_ADMIN, ROLE_DEAN],
-        "retrieve": [ROLE_ADMIN, ROLE_DEAN],
+        "list": [ROLE_ADMIN, ROLE_DEAN, ROLE_INTERNAL_AUDITOR],
+        "retrieve": [ROLE_ADMIN, ROLE_DEAN, ROLE_INTERNAL_AUDITOR],
         "create": [ROLE_ADMIN],
         "update": [ROLE_ADMIN],
         "partial_update": [ROLE_ADMIN],
@@ -88,13 +141,13 @@ class FacultyViewSet(ScopedQuerysetMixin, viewsets.ModelViewSet):
     }
 
 
-class DepartmentViewSet(ScopedQuerysetMixin, viewsets.ModelViewSet):
+class DepartmentViewSet(ScopedQuerysetMixin, AuditedModelViewSet):
     queryset = Department.objects.select_related("faculty").all().order_by("name")
     serializer_class = DepartmentSerializer
     permission_classes = [RolePermission]
     allowed_roles = {
-        "list": [ROLE_ADMIN, ROLE_DEAN, ROLE_COD, ROLE_LAB_TECHNICIAN, ROLE_LECTURER],
-        "retrieve": [ROLE_ADMIN, ROLE_DEAN, ROLE_COD, ROLE_LAB_TECHNICIAN, ROLE_LECTURER],
+        "list": [ROLE_ADMIN, ROLE_DEAN, ROLE_COD, ROLE_INTERNAL_AUDITOR, ROLE_LAB_TECHNICIAN, ROLE_LECTURER],
+        "retrieve": [ROLE_ADMIN, ROLE_DEAN, ROLE_COD, ROLE_INTERNAL_AUDITOR, ROLE_LAB_TECHNICIAN, ROLE_LECTURER],
         "create": [ROLE_ADMIN],
         "update": [ROLE_ADMIN],
         "partial_update": [ROLE_ADMIN],
@@ -106,22 +159,23 @@ class DepartmentViewSet(ScopedQuerysetMixin, viewsets.ModelViewSet):
         return self.filter_department_queryset(queryset, "id")
 
 
-class UserViewSet(ScopedQuerysetMixin, viewsets.ModelViewSet):
-    queryset = User.objects.select_related("profile", "profile__department").all().order_by("username")
+class UserViewSet(ScopedQuerysetMixin, AuditedModelViewSet):
+    queryset = User.objects.select_related("profile", "profile__department", "profile__staff_location").all().order_by("username")
     serializer_class = UserSerializer
     permission_classes = [RolePermission]
     allowed_roles = {
-        "list": [ROLE_ADMIN, ROLE_DEAN, ROLE_COD],
-        "retrieve": [ROLE_ADMIN, ROLE_DEAN, ROLE_COD],
-        "create": [ROLE_ADMIN],
-        "update": [ROLE_ADMIN],
-        "partial_update": [ROLE_ADMIN],
+        "list": [ROLE_ADMIN, ROLE_DEAN, ROLE_COD, ROLE_INTERNAL_AUDITOR, ROLE_LAB_TECHNICIAN],
+        "retrieve": [ROLE_ADMIN, ROLE_DEAN, ROLE_COD, ROLE_INTERNAL_AUDITOR, ROLE_LAB_TECHNICIAN],
+        "create": [ROLE_ADMIN, ROLE_COD],
+        "update": [ROLE_ADMIN, ROLE_COD],
+        "partial_update": [ROLE_ADMIN, ROLE_COD],
+        "destroy": [ROLE_ADMIN],
     }
 
     def get_queryset(self):
         queryset = super().get_queryset()
         role = infer_user_role(self.request.user)
-        if self.request.user.is_superuser or role in {ROLE_ADMIN, ROLE_DEAN}:
+        if self.request.user.is_superuser or role in {ROLE_ADMIN, ROLE_DEAN, ROLE_INTERNAL_AUDITOR}:
             return queryset
 
         department = self.user_department()
@@ -131,13 +185,13 @@ class UserViewSet(ScopedQuerysetMixin, viewsets.ModelViewSet):
         return queryset.filter(profile__department=department)
 
 
-class CategoryViewSet(ScopedQuerysetMixin, viewsets.ModelViewSet):
+class CategoryViewSet(ScopedQuerysetMixin, AuditedModelViewSet):
     queryset = Category.objects.select_related("parent").all().order_by("name")
     serializer_class = CategorySerializer
     permission_classes = [RolePermission]
     allowed_roles = {
-        "list": [ROLE_ADMIN, ROLE_DEAN, ROLE_COD, ROLE_LAB_TECHNICIAN, ROLE_LECTURER],
-        "retrieve": [ROLE_ADMIN, ROLE_DEAN, ROLE_COD, ROLE_LAB_TECHNICIAN, ROLE_LECTURER],
+        "list": [ROLE_ADMIN, ROLE_DEAN, ROLE_COD, ROLE_INTERNAL_AUDITOR, ROLE_LAB_TECHNICIAN, ROLE_LECTURER],
+        "retrieve": [ROLE_ADMIN, ROLE_DEAN, ROLE_COD, ROLE_INTERNAL_AUDITOR, ROLE_LAB_TECHNICIAN, ROLE_LECTURER],
         "create": [ROLE_ADMIN, ROLE_COD, ROLE_LAB_TECHNICIAN],
         "update": [ROLE_ADMIN, ROLE_COD, ROLE_LAB_TECHNICIAN],
         "partial_update": [ROLE_ADMIN, ROLE_COD, ROLE_LAB_TECHNICIAN],
@@ -145,13 +199,13 @@ class CategoryViewSet(ScopedQuerysetMixin, viewsets.ModelViewSet):
     }
 
 
-class SupplierViewSet(ScopedQuerysetMixin, viewsets.ModelViewSet):
+class SupplierViewSet(ScopedQuerysetMixin, AuditedModelViewSet):
     queryset = Supplier.objects.all().order_by("name")
     serializer_class = SupplierSerializer
     permission_classes = [RolePermission]
     allowed_roles = {
-        "list": [ROLE_ADMIN, ROLE_DEAN, ROLE_COD, ROLE_LAB_TECHNICIAN, ROLE_LECTURER],
-        "retrieve": [ROLE_ADMIN, ROLE_DEAN, ROLE_COD, ROLE_LAB_TECHNICIAN, ROLE_LECTURER],
+        "list": [ROLE_ADMIN, ROLE_DEAN, ROLE_COD, ROLE_INTERNAL_AUDITOR, ROLE_LAB_TECHNICIAN, ROLE_LECTURER],
+        "retrieve": [ROLE_ADMIN, ROLE_DEAN, ROLE_COD, ROLE_INTERNAL_AUDITOR, ROLE_LAB_TECHNICIAN, ROLE_LECTURER],
         "create": [ROLE_ADMIN, ROLE_COD, ROLE_LAB_TECHNICIAN],
         "update": [ROLE_ADMIN, ROLE_COD, ROLE_LAB_TECHNICIAN],
         "partial_update": [ROLE_ADMIN, ROLE_COD, ROLE_LAB_TECHNICIAN],
@@ -159,13 +213,13 @@ class SupplierViewSet(ScopedQuerysetMixin, viewsets.ModelViewSet):
     }
 
 
-class LocationViewSet(ScopedQuerysetMixin, viewsets.ModelViewSet):
+class LocationViewSet(ScopedQuerysetMixin, AuditedModelViewSet):
     queryset = Location.objects.select_related("department").all().order_by("building", "room")
     serializer_class = LocationSerializer
     permission_classes = [RolePermission]
     allowed_roles = {
-        "list": [ROLE_ADMIN, ROLE_DEAN, ROLE_COD, ROLE_LAB_TECHNICIAN, ROLE_LECTURER],
-        "retrieve": [ROLE_ADMIN, ROLE_DEAN, ROLE_COD, ROLE_LAB_TECHNICIAN, ROLE_LECTURER],
+        "list": [ROLE_ADMIN, ROLE_DEAN, ROLE_COD, ROLE_INTERNAL_AUDITOR, ROLE_LAB_TECHNICIAN, ROLE_LECTURER],
+        "retrieve": [ROLE_ADMIN, ROLE_DEAN, ROLE_COD, ROLE_INTERNAL_AUDITOR, ROLE_LAB_TECHNICIAN, ROLE_LECTURER],
         "create": [ROLE_ADMIN, ROLE_COD, ROLE_LAB_TECHNICIAN],
         "update": [ROLE_ADMIN, ROLE_COD, ROLE_LAB_TECHNICIAN],
         "partial_update": [ROLE_ADMIN, ROLE_COD, ROLE_LAB_TECHNICIAN],
@@ -180,7 +234,7 @@ class LocationViewSet(ScopedQuerysetMixin, viewsets.ModelViewSet):
         return self.filter_department_queryset(queryset, "department")
 
 
-class AssetViewSet(ScopedQuerysetMixin, viewsets.ModelViewSet):
+class AssetViewSet(ScopedQuerysetMixin, AuditedModelViewSet):
     queryset = Asset.objects.select_related(
         "category",
         "supplier",
@@ -191,16 +245,19 @@ class AssetViewSet(ScopedQuerysetMixin, viewsets.ModelViewSet):
     serializer_class = AssetSerializer
     permission_classes = [RolePermission]
     allowed_roles = {
-        "list": [ROLE_ADMIN, ROLE_DEAN, ROLE_COD, ROLE_LAB_TECHNICIAN, ROLE_LECTURER],
-        "retrieve": [ROLE_ADMIN, ROLE_DEAN, ROLE_COD, ROLE_LAB_TECHNICIAN, ROLE_LECTURER],
+        "post": [ROLE_ADMIN, ROLE_COD, ROLE_LAB_TECHNICIAN],
+        "list": [ROLE_ADMIN, ROLE_DEAN, ROLE_COD, ROLE_INTERNAL_AUDITOR, ROLE_LAB_TECHNICIAN, ROLE_LECTURER],
+        "retrieve": [ROLE_ADMIN, ROLE_DEAN, ROLE_COD, ROLE_INTERNAL_AUDITOR, ROLE_LAB_TECHNICIAN, ROLE_LECTURER],
         "create": [ROLE_ADMIN, ROLE_COD, ROLE_LAB_TECHNICIAN],
         "update": [ROLE_ADMIN, ROLE_COD, ROLE_LAB_TECHNICIAN],
         "partial_update": [ROLE_ADMIN, ROLE_COD, ROLE_LAB_TECHNICIAN],
+        "thumbnail": [ROLE_ADMIN, ROLE_COD, ROLE_LAB_TECHNICIAN],
         "destroy": [ROLE_ADMIN],
     }
     filterset_fields = ["category", "status", "condition", "current_location__department"]
     search_fields = ["asset_id", "name", "serial_number", "description", "barcode"]
     ordering_fields = ["created_at", "purchase_date", "purchase_cost", "asset_id", "name"]
+    parser_classes = [JSONParser, FormParser, MultiPartParser]
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -208,13 +265,24 @@ class AssetViewSet(ScopedQuerysetMixin, viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         asset = serializer.save(created_by=self.request.user)
+        disposal_update_fields = sync_asset_disposal_state(asset)
+        if disposal_update_fields:
+            disposal_update_fields.append("updated_at")
+            asset.save(update_fields=disposal_update_fields)
         sync_asset_depreciation(asset)
+        self.log_create_audit(asset, serializer)
 
     def perform_update(self, serializer):
         previous_asset = self.get_object()
         previous_location = previous_asset.current_location
+        previous_status = previous_asset.status
         asset = serializer.save()
+        disposal_update_fields = sync_asset_disposal_state(asset, previous_status=previous_status)
+        if disposal_update_fields:
+            disposal_update_fields.append("updated_at")
+            asset.save(update_fields=disposal_update_fields)
         sync_asset_depreciation(asset)
+        self.log_update_audit(asset, serializer)
 
         if previous_location_id(previous_location) != previous_location_id(asset.current_location):
             record_asset_movement(
@@ -225,8 +293,20 @@ class AssetViewSet(ScopedQuerysetMixin, viewsets.ModelViewSet):
                 notes="Location updated through asset management.",
             )
 
+    @action(detail=True, methods=["post"], url_path="thumbnail")
+    def thumbnail(self, request, pk=None):
+        asset = self.get_object()
+        thumbnail = request.FILES.get("thumbnail")
+        if not thumbnail:
+            return Response({"thumbnail": ["Please select an image file."]}, status=status.HTTP_400_BAD_REQUEST)
 
-class AllocationViewSet(ScopedQuerysetMixin, viewsets.ModelViewSet):
+        asset.thumbnail = thumbnail
+        asset.save(update_fields=["thumbnail", "updated_at"])
+        serializer = self.get_serializer(asset)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class AllocationViewSet(ScopedQuerysetMixin, AuditedModelViewSet):
     queryset = Allocation.objects.select_related(
         "asset",
         "asset__current_location",
@@ -238,8 +318,8 @@ class AllocationViewSet(ScopedQuerysetMixin, viewsets.ModelViewSet):
     serializer_class = AllocationSerializer
     permission_classes = [RolePermission]
     allowed_roles = {
-        "list": [ROLE_ADMIN, ROLE_DEAN, ROLE_COD, ROLE_LAB_TECHNICIAN, ROLE_LECTURER],
-        "retrieve": [ROLE_ADMIN, ROLE_DEAN, ROLE_COD, ROLE_LAB_TECHNICIAN, ROLE_LECTURER],
+        "list": [ROLE_ADMIN, ROLE_DEAN, ROLE_COD, ROLE_INTERNAL_AUDITOR, ROLE_LAB_TECHNICIAN, ROLE_LECTURER],
+        "retrieve": [ROLE_ADMIN, ROLE_DEAN, ROLE_COD, ROLE_INTERNAL_AUDITOR, ROLE_LAB_TECHNICIAN, ROLE_LECTURER],
         "create": [ROLE_ADMIN, ROLE_COD, ROLE_LAB_TECHNICIAN],
         "update": [ROLE_ADMIN, ROLE_COD, ROLE_LAB_TECHNICIAN],
         "partial_update": [ROLE_ADMIN, ROLE_COD, ROLE_LAB_TECHNICIAN],
@@ -252,7 +332,7 @@ class AllocationViewSet(ScopedQuerysetMixin, viewsets.ModelViewSet):
         queryset = super().get_queryset()
         role = infer_user_role(self.request.user)
 
-        if self.request.user.is_superuser or role in {ROLE_ADMIN, ROLE_DEAN}:
+        if self.request.user.is_superuser or role in {ROLE_ADMIN, ROLE_DEAN, ROLE_INTERNAL_AUDITOR}:
             return queryset
 
         if role == ROLE_LECTURER:
@@ -265,10 +345,11 @@ class AllocationViewSet(ScopedQuerysetMixin, viewsets.ModelViewSet):
         return queryset.filter(asset__current_location__department=department)
 
     def perform_create(self, serializer):
-        serializer.save(allocated_by=self.request.user)
+        allocation = serializer.save(allocated_by=self.request.user)
+        self.log_create_audit(allocation, serializer)
 
 
-class MaintenanceViewSet(ScopedQuerysetMixin, viewsets.ModelViewSet):
+class MaintenanceViewSet(ScopedQuerysetMixin, AuditedModelViewSet):
     queryset = Maintenance.objects.select_related(
         "asset",
         "asset__current_location",
@@ -279,8 +360,8 @@ class MaintenanceViewSet(ScopedQuerysetMixin, viewsets.ModelViewSet):
     serializer_class = MaintenanceSerializer
     permission_classes = [RolePermission]
     allowed_roles = {
-        "list": [ROLE_ADMIN, ROLE_DEAN, ROLE_COD, ROLE_LAB_TECHNICIAN, ROLE_LECTURER],
-        "retrieve": [ROLE_ADMIN, ROLE_DEAN, ROLE_COD, ROLE_LAB_TECHNICIAN, ROLE_LECTURER],
+        "list": [ROLE_ADMIN, ROLE_DEAN, ROLE_COD, ROLE_INTERNAL_AUDITOR, ROLE_LAB_TECHNICIAN, ROLE_LECTURER],
+        "retrieve": [ROLE_ADMIN, ROLE_DEAN, ROLE_COD, ROLE_INTERNAL_AUDITOR, ROLE_LAB_TECHNICIAN, ROLE_LECTURER],
         "create": [ROLE_ADMIN, ROLE_COD, ROLE_LAB_TECHNICIAN, ROLE_LECTURER],
         "update": [ROLE_ADMIN, ROLE_COD, ROLE_LAB_TECHNICIAN],
         "partial_update": [ROLE_ADMIN, ROLE_COD, ROLE_LAB_TECHNICIAN],
@@ -293,7 +374,7 @@ class MaintenanceViewSet(ScopedQuerysetMixin, viewsets.ModelViewSet):
         queryset = super().get_queryset()
         role = infer_user_role(self.request.user)
 
-        if self.request.user.is_superuser or role in {ROLE_ADMIN, ROLE_DEAN}:
+        if self.request.user.is_superuser or role in {ROLE_ADMIN, ROLE_DEAN, ROLE_INTERNAL_AUDITOR}:
             return queryset
 
         if role == ROLE_LECTURER:
@@ -308,7 +389,8 @@ class MaintenanceViewSet(ScopedQuerysetMixin, viewsets.ModelViewSet):
         return queryset.filter(asset__current_location__department=department)
 
     def perform_create(self, serializer):
-        serializer.save(reported_by=self.request.user)
+        maintenance = serializer.save(reported_by=self.request.user)
+        self.log_create_audit(maintenance, serializer)
 
 
 class AssetMovementViewSet(ScopedQuerysetMixin, viewsets.ReadOnlyModelViewSet):
@@ -325,8 +407,8 @@ class AssetMovementViewSet(ScopedQuerysetMixin, viewsets.ReadOnlyModelViewSet):
     serializer_class = AssetMovementSerializer
     permission_classes = [RolePermission]
     allowed_roles = {
-        "list": [ROLE_ADMIN, ROLE_DEAN, ROLE_COD, ROLE_LAB_TECHNICIAN, ROLE_LECTURER],
-        "retrieve": [ROLE_ADMIN, ROLE_DEAN, ROLE_COD, ROLE_LAB_TECHNICIAN, ROLE_LECTURER],
+        "list": [ROLE_ADMIN, ROLE_DEAN, ROLE_COD, ROLE_INTERNAL_AUDITOR, ROLE_LAB_TECHNICIAN, ROLE_LECTURER],
+        "retrieve": [ROLE_ADMIN, ROLE_DEAN, ROLE_COD, ROLE_INTERNAL_AUDITOR, ROLE_LAB_TECHNICIAN, ROLE_LECTURER],
     }
     filterset_fields = ["asset", "from_location", "to_location", "moved_by"]
     search_fields = ["asset__asset_id", "asset__name", "notes", "moved_by__username"]
@@ -336,7 +418,7 @@ class AssetMovementViewSet(ScopedQuerysetMixin, viewsets.ReadOnlyModelViewSet):
         queryset = super().get_queryset()
         role = infer_user_role(self.request.user)
 
-        if self.request.user.is_superuser or role in {ROLE_ADMIN, ROLE_DEAN}:
+        if self.request.user.is_superuser or role in {ROLE_ADMIN, ROLE_DEAN, ROLE_INTERNAL_AUDITOR}:
             return queryset
 
         department = self.user_department()
@@ -360,8 +442,8 @@ class DepreciationRecordViewSet(ScopedQuerysetMixin, viewsets.ReadOnlyModelViewS
     serializer_class = DepreciationRecordSerializer
     permission_classes = [RolePermission]
     allowed_roles = {
-        "list": [ROLE_ADMIN, ROLE_DEAN, ROLE_COD, ROLE_LAB_TECHNICIAN, ROLE_LECTURER],
-        "retrieve": [ROLE_ADMIN, ROLE_DEAN, ROLE_COD, ROLE_LAB_TECHNICIAN, ROLE_LECTURER],
+        "list": [ROLE_ADMIN, ROLE_DEAN, ROLE_COD, ROLE_INTERNAL_AUDITOR, ROLE_LAB_TECHNICIAN, ROLE_LECTURER],
+        "retrieve": [ROLE_ADMIN, ROLE_DEAN, ROLE_COD, ROLE_INTERNAL_AUDITOR, ROLE_LAB_TECHNICIAN, ROLE_LECTURER],
     }
     filterset_fields = ["asset", "year"]
     search_fields = ["asset__asset_id", "asset__name"]
@@ -452,7 +534,7 @@ class AssetMovementHistoryReportView(ScopedQuerysetMixin, APIView):
         ).all()
         role = infer_user_role(request.user)
 
-        if not (request.user.is_superuser or role in {ROLE_ADMIN, ROLE_DEAN}):
+        if not (request.user.is_superuser or role in {ROLE_ADMIN, ROLE_DEAN, ROLE_INTERNAL_AUDITOR}):
             department = self.user_department()
             if department is None:
                 movements = movements.none()
@@ -490,6 +572,35 @@ class DepreciationSummaryReportView(ScopedQuerysetMixin, APIView):
                     "total_book_value": totals["total_book_value"] or 0,
                 },
                 "records": DepreciationRecordSerializer(latest_records, many=True).data,
+            }
+        )
+
+
+class HealthCheckView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 1")
+                cursor.fetchone()
+        except Exception:
+            return Response(
+                {
+                    "status": "error",
+                    "application": "FASSETS",
+                    "database": "unavailable",
+                    "time_zone": "UTC",
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        return Response(
+            {
+                "status": "ok",
+                "application": "FASSETS",
+                "database": "ok",
+                "time_zone": "UTC",
             }
         )
 

@@ -18,6 +18,31 @@ def record_asset_movement(*, asset, from_location, to_location, moved_by, notes=
     )
 
 
+def sync_asset_disposal_state(asset, *, previous_status=None):
+    update_fields = []
+
+    if asset.status == "disposed":
+        if asset.disposed_at is None:
+            asset.disposed_at = timezone.now()
+            update_fields.append("disposed_at")
+    else:
+        should_clear_disposal_fields = previous_status == "disposed" or bool(
+            asset.disposed_at or asset.disposal_reason or asset.disposal_reference
+        )
+        if should_clear_disposal_fields:
+            if asset.disposed_at is not None:
+                asset.disposed_at = None
+                update_fields.append("disposed_at")
+            if asset.disposal_reason:
+                asset.disposal_reason = ""
+                update_fields.append("disposal_reason")
+            if asset.disposal_reference:
+                asset.disposal_reference = ""
+                update_fields.append("disposal_reference")
+
+    return update_fields
+
+
 def sync_asset_depreciation(asset):
     if not asset.purchase_date or asset.purchase_cost is None or not asset.category_id:
         return

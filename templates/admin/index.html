@@ -43,6 +43,83 @@
         </section>
 
         <section class="fassets-admin-card">
+          <div class="fassets-card-head">
+            <div>
+              <p class="fassets-eyebrow">User Asset Lookup</p>
+              <h3>Search a user and review all currently assigned assets</h3>
+            </div>
+          </div>
+
+          <form method="get" class="fassets-user-asset-search">
+            <div class="fassets-filter-field">
+              <label for="user-asset-search">Search user</label>
+              <input
+                id="user-asset-search"
+                name="user_asset_search"
+                type="search"
+                placeholder="Username, name, email, employee ID, student ID, or department"
+                value="{{ user_asset_lookup.query }}"
+              >
+            </div>
+            <button type="submit" class="button">Search User</button>
+            {% if user_asset_lookup.query %}
+              <a class="button secondary" href="{% url 'admin:index' %}">Clear Search</a>
+            {% endif %}
+          </form>
+
+          {% if user_asset_lookup.searched %}
+            {% if user_asset_lookup.results %}
+              <div class="fassets-user-asset-results">
+                {% for result in user_asset_lookup.results %}
+                  <article class="fassets-user-asset-card">
+                    <div class="fassets-user-asset-head">
+                      <div>
+                        <strong>{{ result.display_name }}</strong>
+                        <p>{{ result.user.username }} · {{ result.identity_label }}</p>
+                      </div>
+                      <div class="fassets-user-asset-meta">
+                        <span class="chip">{{ result.department_name }}</span>
+                        <span class="chip">{{ result.role_label }}</span>
+                        <span class="chip">{{ result.allocation_count }} assigned asset{{ result.allocation_count|pluralize }}</span>
+                      </div>
+                    </div>
+
+                    {% if result.allocations %}
+                      <div class="fassets-feed-list">
+                        {% for allocation in result.allocations %}
+                          <div class="fassets-feed-item">
+                            <div>
+                              <strong>{{ allocation.asset.asset_id }} - {{ allocation.asset.name }}</strong>
+                              <span>{{ allocation.asset.category.name }} · {{ allocation.asset.current_location }}</span>
+                            </div>
+                            <span class="fassets-admin-status {{ allocation.status }}">{{ allocation.get_status_display }}</span>
+                          </div>
+                        {% endfor %}
+                      </div>
+                    {% else %}
+                      <div class="fassets-empty-state">
+                        <h3>No active assignments</h3>
+                        <p>This user does not currently have any assets assigned to their account.</p>
+                      </div>
+                    {% endif %}
+                  </article>
+                {% endfor %}
+              </div>
+            {% else %}
+              <div class="fassets-empty-state">
+                <h3>No matching users found</h3>
+                <p>Try a username, full name, email address, employee ID, student ID, or department.</p>
+              </div>
+            {% endif %}
+          {% else %}
+            <div class="fassets-empty-state">
+              <h3>Search to load user assignments</h3>
+              <p>Use the search box above to find a user and review the assets currently assigned to them.</p>
+            </div>
+          {% endif %}
+        </section>
+
+        <section class="fassets-admin-card">
           <div class="fassets-card-head" id="asset-requests">
             <div>
               <p class="fassets-eyebrow">Asset Requests</p>
@@ -67,22 +144,37 @@
                     </p>
                     <p class="fassets-request-meta">Submitted {{ asset_request.requested_at|date:"M d, Y H:i" }}</p>
                     {% if asset_request.message %}
-                      <p class="fassets-request-note">{{ asset_request.message }}</p>
+                      <p class="fassets-request-note"><strong>Reason:</strong> {{ asset_request.message }}</p>
+                    {% endif %}
+                    {% if asset_request.requested_start_at and asset_request.requested_end_at %}
+                      <p class="fassets-request-note"><strong>Use window:</strong> {{ asset_request.requested_start_at|date:"M d, Y H:i" }} to {{ asset_request.requested_end_at|date:"M d, Y H:i" }}</p>
+                    {% endif %}
+                    {% if asset_request.usage_location %}
+                      <p class="fassets-request-note"><strong>Place of use:</strong> {{ asset_request.usage_location }}</p>
                     {% endif %}
                   </div>
 
                   <div class="fassets-request-actions">
-                    <form method="post" action="{% url 'admin:review_asset_request' asset_request.id %}">
+                    <form method="post" action="{% url 'admin:review_asset_request' asset_request.id %}" class="fassets-request-review-form" data-review-form>
                       {% csrf_token %}
                       <input type="hidden" name="action" value="approve">
-                      <button type="submit" class="button small">Approve</button>
+                      <button type="button" class="button small" data-review-toggle>Approve</button>
+                      <div class="fassets-review-panel" data-review-panel hidden>
+                        <label for="handover-location-{{ asset_request.id }}">Pickup place</label>
+                        <input id="handover-location-{{ asset_request.id }}" type="text" name="handover_location" placeholder="Enter where the requester should pick the asset">
+
+                        <label for="issue-person-details-{{ asset_request.id }}">Issuer details</label>
+                        <textarea id="issue-person-details-{{ asset_request.id }}" name="issue_person_details" placeholder="Enter the name, office, phone, or any issue instructions"></textarea>
+
+                        <button type="submit" class="button small">Confirm Approval</button>
+                      </div>
                     </form>
 
-                    <form method="post" action="{% url 'admin:review_asset_request' asset_request.id %}" class="fassets-decline-form" data-decline-form>
+                    <form method="post" action="{% url 'admin:review_asset_request' asset_request.id %}" class="fassets-request-review-form" data-review-form>
                       {% csrf_token %}
                       <input type="hidden" name="action" value="decline">
-                      <button type="button" class="button secondary small" data-decline-toggle>Decline</button>
-                      <div class="fassets-decline-reason" data-decline-panel hidden>
+                      <button type="button" class="button secondary small" data-review-toggle>Decline</button>
+                      <div class="fassets-review-panel fassets-review-panel-danger" data-review-panel hidden>
                         <label for="decline-reason-{{ asset_request.id }}">Reason for declination</label>
                         <textarea id="decline-reason-{{ asset_request.id }}" name="decline_reason" placeholder="Tell the requester why this asset request cannot be approved."></textarea>
                         <button type="submit" class="button danger small">Submit Decline</button>
@@ -121,7 +213,7 @@
                   <div class="fassets-module-actions">
                     {% for model in app.models %}
                       {% if model.manage_url %}
-                        <a class="fassets-module-button" href="{{ model.manage_url }}">{{ model.name }}</a>
+                        <a class="fassets-module-button" data-model="{{ model.object_name|lower }}" href="{{ model.manage_url }}">{{ model.name }}</a>
                       {% endif %}
                     {% endfor %}
                   </div>
@@ -129,7 +221,7 @@
                     {% for model in app.models %}
                       <div class="fassets-model-row">
                         <div>
-                          <strong>{{ model.name }}</strong>
+                          <strong class="fassets-model-name" data-model="{{ model.object_name|lower }}">{{ model.name }}</strong>
                           <p>
                             {% if model.admin_url %}Open, review, and manage entries for this module.{% else %}This module is not available for your current permissions.{% endif %}
                           </p>
@@ -257,7 +349,7 @@
               <strong>{{ depreciation_totals.total_book_value|default:0 }}</strong>
             </div>
           </div>
-          <div class="fassets-feed-list" style="margin-top: 14px;">
+          <div class="fassets-feed-list" style="margin-top: 8px;">
             {% for record in recent_depreciation_records %}
               <div class="fassets-feed-item">
                 <strong>{{ record.asset.asset_id }} - {{ record.asset.name }}</strong>
@@ -273,18 +365,22 @@
   </section>
 
   <script>
-    document.querySelectorAll('[data-decline-form]').forEach((form) => {
-      const toggle = form.querySelector('[data-decline-toggle]');
-      const panel = form.querySelector('[data-decline-panel]');
+    document.querySelectorAll('[data-review-form]').forEach((form) => {
+      const toggle = form.querySelector('[data-review-toggle]');
+      const panel = form.querySelector('[data-review-panel]');
+      const hiddenAction = form.querySelector('input[name="action"]');
+      const actionValue = hiddenAction ? hiddenAction.value : 'review';
+      const openLabel = actionValue === 'approve' ? 'Approve' : 'Decline';
+      const cancelLabel = actionValue === 'approve' ? 'Cancel Approval' : 'Cancel Decline';
 
       toggle.addEventListener('click', () => {
         const shouldShow = panel.hasAttribute('hidden');
         panel.toggleAttribute('hidden', !shouldShow);
-        toggle.textContent = shouldShow ? 'Cancel Decline' : 'Decline';
+        toggle.textContent = shouldShow ? cancelLabel : openLabel;
         if (shouldShow) {
-          const textarea = panel.querySelector('textarea');
-          if (textarea) {
-            textarea.focus();
+          const focusTarget = panel.querySelector('input, textarea');
+          if (focusTarget) {
+            focusTarget.focus();
           }
         }
       });

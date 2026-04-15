@@ -1,31 +1,463 @@
 {% extends "admin/base_site.html" %}
 
 {% block content %}
+  <style>
+    .fassets-report-meta-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      margin-top: 1rem;
+    }
+
+    .fassets-report-meta-card {
+      display: grid;
+      gap: 4px;
+      padding: 14px 16px;
+      border-radius: 18px;
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      background: rgba(255, 255, 255, 0.9);
+    }
+
+    .fassets-report-meta-card span {
+      color: rgba(71, 85, 105, 0.92);
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .fassets-report-meta-card strong {
+      font-size: 0.96rem;
+    }
+
+    .fassets-filter-hint {
+      margin: 0.45rem 0 0;
+      color: rgba(71, 85, 105, 0.92);
+      font-size: 0.92rem;
+    }
+
+    .fassets-print-banner {
+      display: none;
+    }
+
+    .fassets-print-banner p,
+    .fassets-print-banner h3 {
+      margin: 0;
+    }
+
+    .fassets-print-banner-meta {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 8px;
+    }
+
+    .fassets-print-system {
+      display: block;
+      color: #14532d;
+      font-size: 1.02rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+
+    .fassets-approval-block {
+      display: none;
+    }
+
+    .fassets-report-table {
+      table-layout: auto;
+    }
+
+    .fassets-report-table.fassets-report-table-inventory {
+      table-layout: fixed;
+      width: 100%;
+    }
+
+    .fassets-report-table.fassets-report-table-inventory th,
+    .fassets-report-table.fassets-report-table-inventory td {
+      word-break: normal;
+      overflow-wrap: break-word;
+    }
+
+    .fassets-print-table-wrap {
+      display: none;
+    }
+
+    .fassets-print-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    @media print {
+      @page {
+        size: A4 landscape;
+        margin: 6mm;
+      }
+
+      body {
+        background: #fff;
+        color: #111;
+        font-family: "Times New Roman", Georgia, serif;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      .topbar,
+      .message-stack,
+      .fassets-admin-hero,
+      .fassets-report-meta-grid,
+      .fassets-hero-actions,
+      .fassets-report-filters,
+      .fassets-print-button,
+      .fassets-admin-card.is-filter-card {
+        display: none !important;
+      }
+
+      .shell {
+        width: 100%;
+        margin: 0;
+        padding: 0;
+      }
+
+      .fassets-admin-dashboard,
+      .fassets-admin-card,
+      .fassets-admin-hero {
+        background: #fff !important;
+        box-shadow: none !important;
+        margin: 0 !important;
+        overflow: visible !important;
+      }
+
+      .fassets-admin-card {
+        break-inside: auto;
+        page-break-inside: auto;
+        margin-bottom: 8px;
+      }
+
+      .fassets-admin-table-wrap {
+        overflow: visible !important;
+      }
+
+      .fassets-admin-hero,
+      .fassets-card-head,
+      .fassets-report-meta-grid {
+        margin-bottom: 10px;
+      }
+
+      .fassets-report-meta-card,
+      .fassets-report-count,
+      .fassets-admin-status {
+        background: #fff !important;
+        color: #111 !important;
+        border: 1px solid #666 !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+      }
+
+      .fassets-print-banner {
+        display: grid;
+        gap: 8px;
+        margin-bottom: 8px;
+        padding-bottom: 6px;
+        border-bottom: 2px solid #111;
+      }
+
+      .fassets-card-head .fassets-eyebrow,
+      .fassets-card-head p,
+      .fassets-report-count {
+        display: none !important;
+      }
+
+      .fassets-report-table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: auto !important;
+        font-size: 8pt;
+        color: #111 !important;
+        background: #fff !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        overflow: visible !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        page-break-inside: auto !important;
+      }
+
+      .fassets-report-table thead {
+        display: table-header-group;
+        visibility: visible !important;
+      }
+
+      .fassets-report-table tbody {
+        visibility: visible !important;
+      }
+
+      .fassets-report-table tr {
+        visibility: visible !important;
+        vertical-align: top;
+        page-break-inside: auto !important;
+        break-inside: auto !important;
+        height: auto !important;
+      }
+
+      .fassets-report-table col {
+        width: auto !important;
+      }
+
+      .fassets-report-table th,
+      .fassets-report-table td {
+        padding: 4px 6px;
+        border: 1px solid #c9d6e2;
+        color: #111 !important;
+        background: #fff !important;
+        -webkit-text-fill-color: #111 !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        line-height: 1.25 !important;
+        white-space: normal !important;
+        overflow: visible !important;
+        word-break: normal !important;
+        overflow-wrap: break-word !important;
+        hyphens: none !important;
+        font-size: 8pt !important;
+        height: auto !important;
+        clip-path: none !important;
+        transform: none !important;
+      }
+
+      .fassets-report-table thead th {
+        background: #dbe9f5 !important;
+        color: #315f86 !important;
+        -webkit-text-fill-color: #315f86 !important;
+        border-color: #bfd3e5 !important;
+        border-bottom: 2px solid #7fa6c2 !important;
+        letter-spacing: 0.02em !important;
+        font-size: 7.8pt !important;
+        font-weight: 700 !important;
+      }
+
+      .fassets-report-table tbody tr:nth-child(even) td {
+        background: #f7fbfe !important;
+      }
+
+      .fassets-report-table.fassets-report-table-inventory {
+        table-layout: auto !important;
+      }
+
+      .fassets-report-table.fassets-report-table-inventory td:first-child,
+      .fassets-report-table.fassets-report-table-inventory td:nth-child(2) {
+        font-weight: 600;
+      }
+
+      .fassets-report-table.fassets-report-table-inventory td:first-child,
+      .fassets-report-table.fassets-report-table-inventory td:nth-child(7),
+      .fassets-report-table.fassets-report-table-inventory td:nth-child(8),
+      .fassets-report-table.fassets-report-table-inventory td:nth-child(9),
+      .fassets-report-table.fassets-report-table-inventory td:nth-child(10) {
+        white-space: nowrap !important;
+        word-break: normal !important;
+        overflow-wrap: normal !important;
+      }
+
+      .fassets-report-table.fassets-report-table-inventory {
+        display: none !important;
+      }
+
+      .fassets-print-table-wrap {
+        display: block !important;
+        margin-top: 4px;
+      }
+
+      .fassets-print-table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed !important;
+        font-size: 8pt;
+        color: #111 !important;
+        background: #fff !important;
+      }
+
+      .fassets-print-table thead {
+        display: table-header-group;
+        visibility: visible !important;
+      }
+
+      .fassets-print-table tr {
+        page-break-inside: auto !important;
+        break-inside: auto !important;
+        visibility: visible !important;
+      }
+
+      .fassets-print-table th,
+      .fassets-print-table td {
+        padding: 4px 6px;
+        border: 1px solid #c9d6e2;
+        vertical-align: top;
+        color: #111 !important;
+        background: #fff !important;
+        -webkit-text-fill-color: #111 !important;
+        white-space: normal !important;
+        word-break: normal !important;
+        overflow-wrap: break-word !important;
+        line-height: 1.25 !important;
+      }
+
+      .fassets-print-table thead th {
+        background: #dbe9f5 !important;
+        color: #315f86 !important;
+        -webkit-text-fill-color: #315f86 !important;
+        border-color: #bfd3e5 !important;
+        border-bottom: 2px solid #7fa6c2 !important;
+        letter-spacing: 0.02em !important;
+        font-size: 7.8pt !important;
+        font-weight: 700 !important;
+      }
+
+      .fassets-print-table tbody tr:nth-child(even) td {
+        background: #f7fbfe !important;
+      }
+
+      .fassets-print-table td:first-child,
+      .fassets-print-table td:nth-child(7),
+      .fassets-print-table td:nth-child(8),
+      .fassets-print-table td:nth-child(9),
+      .fassets-print-table td:nth-child(10) {
+        white-space: nowrap !important;
+        overflow-wrap: normal !important;
+      }
+
+      .fassets-approval-block {
+        display: grid !important;
+        gap: 8px;
+        margin-top: 10px;
+        padding-top: 8px;
+        border-top: 2px solid #14532d;
+        color: #111 !important;
+      }
+
+      .fassets-approval-note {
+        margin: 0;
+        color: #14532d !important;
+        font-size: 8.4pt !important;
+        font-style: italic;
+      }
+
+      .fassets-signature-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .fassets-signature-card {
+        display: grid;
+        gap: 4px;
+      }
+
+      .fassets-signature-card span {
+        font-size: 8.1pt;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: #166534 !important;
+      }
+
+      .fassets-signature-line {
+        height: 18px;
+        border-bottom: 1px solid #14532d;
+      }
+
+      .fassets-signature-card strong {
+        font-size: 8.2pt;
+        font-weight: 500;
+        color: #111 !important;
+      }
+
+      .fassets-report-table .fassets-admin-status {
+        display: inline !important;
+        padding: 0 !important;
+        border: 0 !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        color: #111 !important;
+        -webkit-text-fill-color: #111 !important;
+      }
+
+      .fassets-empty-state {
+        display: block !important;
+        padding: 10px 12px;
+        border: 1px solid #666;
+        color: #111 !important;
+        background: #fff !important;
+      }
+    }
+  </style>
   <section class="fassets-admin-dashboard">
     <div class="fassets-admin-hero">
       <div>
         <p class="fassets-eyebrow">Reports Center</p>
-        <h2>Review inventory, requests, and maintenance activity from one admin page.</h2>
-        <p>These reports are designed for administrative follow-up, approval tracking, service history review, and inventory oversight.</p>
+        <h2>Generated Reports</h2>
       </div>
       <div class="fassets-hero-actions">
+        <button type="button" class="fassets-cta fassets-print-button" onclick="window.print()">Print All Reports</button>
         <a class="fassets-cta" href="{% url 'admin:index' %}">Back To Admin Home</a>
         <a class="fassets-cta secondary" href="{% url 'admin:inventory' %}">Open Inventory</a>
       </div>
     </div>
 
-    <section class="fassets-admin-card">
+    <section class="fassets-admin-card is-filter-card">
+      <div class="fassets-card-head">
+        <div>
+          <p class="fassets-eyebrow">Report Metadata</p>
+          <h3>Generation details and active filters</h3>
+        </div>
+      </div>
+
+      <div class="fassets-report-meta-grid">
+        <div class="fassets-report-meta-card">
+          <span>Generated By</span>
+          <strong>{{ report_generated_by }}</strong>
+        </div>
+        <div class="fassets-report-meta-card">
+          <span>Generated On</span>
+          <strong>{{ report_generated_at|date:"M d, Y H:i" }}</strong>
+        </div>
+        <div class="fassets-report-meta-card">
+          <span>Active Filters</span>
+          <strong>{{ report_active_filters_text }}</strong>
+        </div>
+        {% for item in report_filters %}
+          <div class="fassets-report-meta-card">
+            <span>{{ item.label }}</span>
+            <strong>{{ item.value }}</strong>
+          </div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="fassets-admin-card is-filter-card">
       <div class="fassets-card-head">
         <div>
           <p class="fassets-eyebrow">Report Filters</p>
           <h3>Narrow the reports below</h3>
+          <p class="fassets-filter-hint" data-availability-filter-note {% if not ignore_related_activity_status_filters %}hidden{% endif %}>
+            {{ report_filter_notice|default:"Available assets ignore request and maintenance status filters." }}
+          </p>
         </div>
       </div>
 
       <form method="get" class="fassets-report-filters">
         <div class="fassets-filter-field">
+          <label for="report-date-from">Date From</label>
+          <input id="report-date-from" type="date" name="date_from" value="{{ date_from }}">
+        </div>
+
+        <div class="fassets-filter-field">
+          <label for="report-date-to">Date To</label>
+          <input id="report-date-to" type="date" name="date_to" value="{{ date_to }}">
+        </div>
+
+        <div class="fassets-filter-field">
           <label for="inventory-status">Inventory Status</label>
-          <select id="inventory-status" name="inventory_status">
+          <select id="inventory-status" name="inventory_status" data-asset-status-filter>
             <option value="">All Inventory Status</option>
             <option value="available" {% if inventory_status == "available" %}selected{% endif %}>Available</option>
             <option value="allocated" {% if inventory_status == "allocated" %}selected{% endif %}>Allocated</option>
@@ -35,9 +467,19 @@
         </div>
 
         <div class="fassets-filter-field">
-          <label for="inventory-category">Inventory Category</label>
-          <select id="inventory-category" name="inventory_category">
-            <option value="">All Categories</option>
+          <label for="asset-condition">Asset Condition</label>
+          <select id="asset-condition" name="asset_condition">
+            <option value="">All Asset Conditions</option>
+            {% for option in asset_condition_options %}
+              <option value="{{ option.value }}" {% if asset_condition == option.value %}selected{% endif %}>{{ option.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="fassets-filter-field">
+          <label for="inventory-category">Asset Category</label>
+          <select id="inventory-category" name="asset_category">
+            <option value="">All Asset Categories</option>
             {% for category in categories %}
               <option value="{{ category.id }}" {% if inventory_category|stringformat:"s" == category.id|stringformat:"s" %}selected{% endif %}>{{ category.name }}</option>
             {% endfor %}
@@ -46,7 +488,7 @@
 
         <div class="fassets-filter-field">
           <label for="request-status">Request Status</label>
-          <select id="request-status" name="request_status">
+          <select id="request-status" name="request_status" data-dependent-status-filter>
             <option value="">All Request Status</option>
             <option value="pending" {% if request_status == "pending" %}selected{% endif %}>Pending</option>
             <option value="approved" {% if request_status == "approved" %}selected{% endif %}>Approved</option>
@@ -57,7 +499,7 @@
 
         <div class="fassets-filter-field">
           <label for="maintenance-status">Maintenance Status</label>
-          <select id="maintenance-status" name="maintenance_status">
+          <select id="maintenance-status" name="maintenance_status" data-dependent-status-filter>
             <option value="">All Maintenance Status</option>
             <option value="scheduled" {% if maintenance_status == "scheduled" %}selected{% endif %}>Scheduled</option>
             <option value="in_progress" {% if maintenance_status == "in_progress" %}selected{% endif %}>In Progress</option>
@@ -68,11 +510,22 @@
 
         <div class="fassets-filter-actions">
           <button type="submit">Apply Filters</button>
+          <a class="fassets-cta secondary" href="{% url 'admin:reports' %}">Clear Filters</a>
         </div>
       </form>
     </section>
 
     <section class="fassets-admin-card">
+      <div class="fassets-print-banner">
+        <p class="fassets-eyebrow">FASSETS Official Report Copy</p>
+        <strong class="fassets-print-system">Fixed Assets Management System</strong>
+        <h3>Inventory Report</h3>
+        <div class="fassets-print-banner-meta">
+          <span>Generated By: {{ report_generated_by }}</span>
+          <span>Generated On: {{ report_generated_at|date:"M d, Y H:i" }}</span>
+          <span>Active Filters: {{ report_active_filters_text }}</span>
+        </div>
+      </div>
       <div class="fassets-card-head">
         <div>
           <p class="fassets-eyebrow">Inventory Report</p>
@@ -83,17 +536,31 @@
 
       {% if inventory_assets %}
         <div class="fassets-admin-table-wrap">
-          <table>
+          <table class="fassets-report-table fassets-report-table-inventory">
+            <colgroup>
+              <col style="width: 10%;">
+              <col style="width: 14%;">
+              <col style="width: 10%;">
+              <col style="width: 10%;">
+              <col style="width: 12%;">
+              <col style="width: 15%;">
+              <col style="width: 8%;">
+              <col style="width: 8%;">
+              <col style="width: 7%;">
+              <col style="width: 6%;">
+            </colgroup>
             <thead>
               <tr>
                 <th>Asset ID</th>
                 <th>Name</th>
                 <th>Category</th>
+                <th>Supplier</th>
                 <th>Department</th>
                 <th>Location</th>
                 <th>Status</th>
                 <th>Condition</th>
                 <th>Purchase Date</th>
+                <th>Purchase Cost</th>
               </tr>
             </thead>
             <tbody>
@@ -102,11 +569,59 @@
                   <td>{{ asset.asset_id }}</td>
                   <td>{{ asset.name }}</td>
                   <td>{{ asset.category.name }}</td>
+                  <td>{{ asset.supplier.name|default:"-" }}</td>
                   <td>{{ asset.current_location.department.name }}</td>
-                  <td>{{ asset.current_location }}</td>
+                  <td>{{ asset.current_location.short_label }}</td>
                   <td><span class="fassets-admin-status {{ asset.status }}">{{ asset.get_status_display }}</span></td>
                   <td>{{ asset.get_condition_display }}</td>
                   <td>{{ asset.purchase_date }}</td>
+                  <td>{{ asset.purchase_cost }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <div class="fassets-print-table-wrap">
+          <table class="fassets-print-table">
+            <colgroup>
+              <col style="width: 10%;">
+              <col style="width: 14%;">
+              <col style="width: 10%;">
+              <col style="width: 10%;">
+              <col style="width: 12%;">
+              <col style="width: 15%;">
+              <col style="width: 8%;">
+              <col style="width: 8%;">
+              <col style="width: 7%;">
+              <col style="width: 6%;">
+            </colgroup>
+            <thead>
+              <tr>
+                <th>Asset ID</th>
+                <th>Name</th>
+                <th>Category</th>
+                <th>Supplier</th>
+                <th>Department</th>
+                <th>Location</th>
+                <th>Status</th>
+                <th>Condition</th>
+                <th>Purchase Date</th>
+                <th>Purchase Cost</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for asset in inventory_assets %}
+                <tr>
+                  <td>{{ asset.asset_id }}</td>
+                  <td>{{ asset.name }}</td>
+                  <td>{{ asset.category.name }}</td>
+                  <td>{{ asset.supplier.name|default:"-" }}</td>
+                  <td>{{ asset.current_location.department.name }}</td>
+                  <td>{{ asset.current_location.short_label }}</td>
+                  <td>{{ asset.get_status_display }}</td>
+                  <td>{{ asset.get_condition_display }}</td>
+                  <td>{{ asset.purchase_date }}</td>
+                  <td>{{ asset.purchase_cost }}</td>
                 </tr>
               {% endfor %}
             </tbody>
@@ -118,9 +633,34 @@
           <p>The current inventory filters did not return any records.</p>
         </div>
       {% endif %}
+      <div class="fassets-approval-block">
+        <p class="fassets-approval-note">System-generated report prepared for review and approval.</p>
+        <div class="fassets-signature-grid">
+          <div class="fassets-signature-card">
+            <span>Reviewed By</span>
+            <div class="fassets-signature-line"></div>
+            <strong>Name, signature, and date</strong>
+          </div>
+          <div class="fassets-signature-card">
+            <span>Approved By</span>
+            <div class="fassets-signature-line"></div>
+            <strong>Name, signature, and date</strong>
+          </div>
+        </div>
+      </div>
     </section>
 
     <section class="fassets-admin-card">
+      <div class="fassets-print-banner">
+        <p class="fassets-eyebrow">FASSETS Official Report Copy</p>
+        <strong class="fassets-print-system">Fixed Assets Management System</strong>
+        <h3>Request Report</h3>
+        <div class="fassets-print-banner-meta">
+          <span>Generated By: {{ report_generated_by }}</span>
+          <span>Generated On: {{ report_generated_at|date:"M d, Y H:i" }}</span>
+          <span>Active Filters: {{ report_active_filters_text }}</span>
+        </div>
+      </div>
       <div class="fassets-card-head">
         <div>
           <p class="fassets-eyebrow">Request Report</p>
@@ -131,16 +671,21 @@
 
       {% if asset_requests_report %}
         <div class="fassets-admin-table-wrap">
-          <table>
+          <table class="fassets-report-table">
             <thead>
               <tr>
                 <th>Asset</th>
                 <th>Requested By</th>
                 <th>Request Date</th>
+                <th>Requested Use Window</th>
+                <th>Place of Use</th>
                 <th>Status</th>
+                <th>Issuer Details</th>
+                <th>Handover Place</th>
                 <th>Reviewed By</th>
                 <th>Decision Date</th>
-                <th>Reason / Note</th>
+                <th>Reason</th>
+                <th>Decision Note</th>
               </tr>
             </thead>
             <tbody>
@@ -150,19 +695,40 @@
                   <td>{{ asset_request.requested_by.get_full_name|default:asset_request.requested_by.username }}</td>
                   <td>{{ asset_request.requested_at|date:"M d, Y H:i" }}</td>
                   <td>
+                    {% if asset_request.requested_start_at and asset_request.requested_end_at %}
+                      {{ asset_request.requested_start_at|date:"M d, Y H:i" }} to {{ asset_request.requested_end_at|date:"M d, Y H:i" }}
+                    {% else %}
+                      -
+                    {% endif %}
+                  </td>
+                  <td>{{ asset_request.usage_location|default:"-" }}</td>
+                  <td>
                     {% if asset_request.status == "rejected" %}
                       <span class="fassets-admin-status rejected">Denied</span>
                     {% else %}
                       <span class="fassets-admin-status {{ asset_request.status }}">{{ asset_request.get_status_display }}</span>
                     {% endif %}
                   </td>
-                  <td>{{ asset_request.reviewed_by|default:"-" }}</td>
+                  <td>
+                    {% if asset_request.status == "approved" %}
+                      {{ asset_request.issue_person_details|default:"-" }}
+                    {% else %}
+                      -
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if asset_request.status == "approved" %}
+                      {{ asset_request.handover_location|default:"-" }}
+                    {% else %}
+                      -
+                    {% endif %}
+                  </td>
+                  <td>{% if asset_request.reviewed_by %}{{ asset_request.reviewed_by }}{% else %}-{% endif %}</td>
                   <td>{% if asset_request.reviewed_at %}{{ asset_request.reviewed_at|date:"M d, Y H:i" }}{% else %}-{% endif %}</td>
+                  <td>{{ asset_request.message|default:"-" }}</td>
                   <td>
                     {% if asset_request.decline_reason %}
                       {{ asset_request.decline_reason }}
-                    {% elif asset_request.message %}
-                      {{ asset_request.message }}
                     {% else %}
                       -
                     {% endif %}
@@ -178,9 +744,34 @@
           <p>The current request filters did not return any records.</p>
         </div>
       {% endif %}
+      <div class="fassets-approval-block">
+        <p class="fassets-approval-note">System-generated report prepared for review and approval.</p>
+        <div class="fassets-signature-grid">
+          <div class="fassets-signature-card">
+            <span>Reviewed By</span>
+            <div class="fassets-signature-line"></div>
+            <strong>Name, signature, and date</strong>
+          </div>
+          <div class="fassets-signature-card">
+            <span>Approved By</span>
+            <div class="fassets-signature-line"></div>
+            <strong>Name, signature, and date</strong>
+          </div>
+        </div>
+      </div>
     </section>
 
     <section class="fassets-admin-card">
+      <div class="fassets-print-banner">
+        <p class="fassets-eyebrow">FASSETS Official Report Copy</p>
+        <strong class="fassets-print-system">Fixed Assets Management System</strong>
+        <h3>Maintenance Report</h3>
+        <div class="fassets-print-banner-meta">
+          <span>Generated By: {{ report_generated_by }}</span>
+          <span>Generated On: {{ report_generated_at|date:"M d, Y H:i" }}</span>
+          <span>Active Filters: {{ report_active_filters_text }}</span>
+        </div>
+      </div>
       <div class="fassets-card-head">
         <div>
           <p class="fassets-eyebrow">Maintenance Report</p>
@@ -191,7 +782,7 @@
 
       {% if maintenance_report %}
         <div class="fassets-admin-table-wrap">
-          <table>
+          <table class="fassets-report-table">
             <thead>
               <tr>
                 <th>Asset</th>
@@ -201,6 +792,8 @@
                 <th>Technician</th>
                 <th>Reported By</th>
                 <th>Issue / Work Requested</th>
+                <th>Cost</th>
+                <th>Parts Replaced</th>
                 <th>What Was Fixed</th>
               </tr>
             </thead>
@@ -220,6 +813,8 @@
                   <td>{{ item.technician|default:"Not assigned" }}</td>
                   <td>{{ item.reported_by|default:"-" }}</td>
                   <td>{{ item.description }}</td>
+                  <td>{{ item.cost|default:"0.00" }}</td>
+                  <td>{{ item.parts_replaced|default:"-" }}</td>
                   <td>
                     {% if item.resolution_notes %}
                       {{ item.resolution_notes }}
@@ -240,6 +835,129 @@
           <p>The current maintenance filters did not return any records.</p>
         </div>
       {% endif %}
+      <div class="fassets-approval-block">
+        <p class="fassets-approval-note">System-generated report prepared for review and approval.</p>
+        <div class="fassets-signature-grid">
+          <div class="fassets-signature-card">
+            <span>Reviewed By</span>
+            <div class="fassets-signature-line"></div>
+            <strong>Name, signature, and date</strong>
+          </div>
+          <div class="fassets-signature-card">
+            <span>Approved By</span>
+            <div class="fassets-signature-line"></div>
+            <strong>Name, signature, and date</strong>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="fassets-admin-card">
+      <div class="fassets-print-banner">
+        <p class="fassets-eyebrow">FASSETS Official Report Copy</p>
+        <strong class="fassets-print-system">Fixed Assets Management System</strong>
+        <h3>Returned Assets Report</h3>
+        <div class="fassets-print-banner-meta">
+          <span>Generated By: {{ report_generated_by }}</span>
+          <span>Generated On: {{ report_generated_at|date:"M d, Y H:i" }}</span>
+          <span>Active Filters: {{ report_active_filters_text }}</span>
+        </div>
+      </div>
+      <div class="fassets-card-head">
+        <div>
+          <p class="fassets-eyebrow">Returned Assets Report</p>
+          <h3>Assets that have been checked back in</h3>
+        </div>
+        <span class="fassets-report-count">{{ returned_assets_report|length }} return{{ returned_assets_report|length|pluralize }}</span>
+      </div>
+
+      {% if returned_assets_report %}
+        <div class="fassets-admin-table-wrap">
+          <table class="fassets-report-table">
+            <thead>
+              <tr>
+                <th>Asset</th>
+                <th>Returned From</th>
+                <th>Allocation Type</th>
+                <th>Issued By</th>
+                <th>Issue Date</th>
+                <th>Expected Return</th>
+                <th>Actual Return</th>
+                <th>Condition Out</th>
+                <th>Condition In</th>
+                <th>Purpose</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for allocation in returned_assets_report %}
+                <tr>
+                  <td>{{ allocation.asset.asset_id }} - {{ allocation.asset.name }}</td>
+                  <td>
+                    {% if allocation.allocated_to %}
+                      {{ allocation.allocated_to.get_full_name|default:allocation.allocated_to.username }}
+                    {% else %}
+                      {{ allocation.allocated_to_lab }}
+                    {% endif %}
+                  </td>
+                  <td>{{ allocation.get_allocation_type_display }}</td>
+                  <td>{{ allocation.allocated_by.username }}</td>
+                  <td>{{ allocation.allocation_date }}</td>
+                  <td>{{ allocation.expected_return_date|default:"-" }}</td>
+                  <td>{{ allocation.actual_return_date|default:"-" }}</td>
+                  <td>{{ allocation.get_condition_out_display|default:"-" }}</td>
+                  <td>{{ allocation.get_condition_in_display|default:"-" }}</td>
+                  <td>{{ allocation.purpose|default:"-" }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="fassets-empty-state">
+          <h3>No returned assets found</h3>
+          <p>No completed return records are available yet.</p>
+        </div>
+      {% endif %}
+      <div class="fassets-approval-block">
+        <p class="fassets-approval-note">System-generated report prepared for review and approval.</p>
+        <div class="fassets-signature-grid">
+          <div class="fassets-signature-card">
+            <span>Reviewed By</span>
+            <div class="fassets-signature-line"></div>
+            <strong>Name, signature, and date</strong>
+          </div>
+          <div class="fassets-signature-card">
+            <span>Approved By</span>
+            <div class="fassets-signature-line"></div>
+            <strong>Name, signature, and date</strong>
+          </div>
+        </div>
+      </div>
     </section>
   </section>
+  <script>
+    (() => {
+      const assetStatusFilter = document.querySelector('[data-asset-status-filter]');
+      const dependentStatusFilters = Array.from(document.querySelectorAll('[data-dependent-status-filter]'));
+      const availabilityFilterNote = document.querySelector('[data-availability-filter-note]');
+      if (!assetStatusFilter || !dependentStatusFilters.length) return;
+
+      function syncDependentStatusFilters() {
+        const ignoreActivityStatuses = assetStatusFilter.value === 'available';
+        dependentStatusFilters.forEach((field) => {
+          field.disabled = ignoreActivityStatuses;
+          if (ignoreActivityStatuses) {
+            field.value = '';
+          }
+        });
+
+        if (availabilityFilterNote) {
+          availabilityFilterNote.hidden = !ignoreActivityStatuses;
+        }
+      }
+
+      assetStatusFilter.addEventListener('change', syncDependentStatusFilters);
+      syncDependentStatusFilters();
+    })();
+  </script>
 {% endblock %}

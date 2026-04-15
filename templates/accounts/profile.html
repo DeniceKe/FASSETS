@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+
+{% block title %}My Profile | FASSETS{% endblock %}
+
+{% block content %}
+<section class="page-card">
+  <div class="section">
+    <div class="toolbar">
+      <div>
+        <p class="eyebrow">My Account</p>
+        <h1>Your profile and account details</h1>
+        <p>Review the details attached to your account, including your assigned department, system role, identifiers, and profile photo.</p>
+      </div>
+      <a class="button-link secondary" href="{% url 'assets:dashboard' %}">Back To Dashboard</a>
+    </div>
+  </div>
+
+  <div class="section">
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      <div class="panel">
+        <p class="eyebrow">Profile Details</p>
+        <div class="profile-hero">
+          {% if profile.photo %}
+            <img src="{{ profile.photo.url }}" alt="{{ profile_user.username }} profile photo" class="profile-photo">
+          {% else %}
+            <div class="profile-photo profile-photo-fallback">
+              {{ profile_user.first_name|default:profile_user.username|slice:":1"|upper }}{{ profile_user.last_name|slice:":1"|upper }}
+            </div>
+          {% endif %}
+          <div>
+            <h2>{{ profile_user.get_full_name|default:profile_user.username }}</h2>
+            <p>@{{ profile_user.username }}</p>
+            <div class="inline-meta">
+              <span class="chip">Account Type: {{ profile.get_user_type_display|default:"Not set" }}</span>
+              <span class="chip">Role: {{ profile.get_role_display|default:"Unassigned" }}</span>
+              <span class="chip">Department: {% if profile.department %}{{ profile.department.name }}{% else %}Not assigned{% endif %}</span>
+              {% if profile.user_type == "staff" %}
+                <span class="chip">Office / Lab: {% if profile.staff_location %}{{ profile.staff_location }}{% else %}Not assigned{% endif %}</span>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        <div class="grid two" style="margin-top: 14px; align-items: start;">
+          <div class="form-stack">
+            <h3>Personal information</h3>
+            <div class="grid two">
+              <div class="form-field">
+                <label for="{{ profile_form.first_name.id_for_label }}">First Name</label>
+                {{ profile_form.first_name }}
+                {% for error in profile_form.first_name.errors %}
+                  <p class="form-help" style="color: #9f1239;">{{ error }}</p>
+                {% endfor %}
+              </div>
+              <div class="form-field">
+                <label for="{{ profile_form.last_name.id_for_label }}">Last Name</label>
+                {{ profile_form.last_name }}
+                {% for error in profile_form.last_name.errors %}
+                  <p class="form-help" style="color: #9f1239;">{{ error }}</p>
+                {% endfor %}
+              </div>
+            </div>
+
+            <div class="form-field">
+              <label for="{{ profile_form.email.id_for_label }}">Email</label>
+              {{ profile_form.email }}
+              {% for error in profile_form.email.errors %}
+                <p class="form-help" style="color: #9f1239;">{{ error }}</p>
+              {% endfor %}
+            </div>
+
+            <div class="grid two">
+              <div class="form-field">
+                <label for="{{ profile_form.phone_number.id_for_label }}">Phone Number</label>
+                {{ profile_form.phone_number }}
+                {% for error in profile_form.phone_number.errors %}
+                  <p class="form-help" style="color: #9f1239;">{{ error }}</p>
+                {% endfor %}
+              </div>
+              {% if show_staff_location_field %}
+                <div class="form-field">
+                  <label for="{{ profile_form.staff_location.id_for_label }}">Office / Lab</label>
+                  {{ profile_form.staff_location }}
+                  {% for error in profile_form.staff_location.errors %}
+                    <p class="form-help" style="color: #9f1239;">{{ error }}</p>
+                  {% endfor %}
+                </div>
+              {% endif %}
+              <div class="form-field">
+                <label for="{{ profile_form.photo.id_for_label }}">Profile Photo</label>
+                {{ profile_form.photo }}
+                {% for error in profile_form.photo.errors %}
+                  <p class="form-help" style="color: #9f1239;">{{ error }}</p>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+
+          <div class="form-stack">
+            <h3>Account details</h3>
+            <p class="muted">Your identity and assignment details are managed with your account records.</p>
+            <div class="profile-detail-grid" style="margin-top: 10px;">
+              <div class="list-item">
+                <strong>Username</strong>
+                <span class="muted">{{ profile_user.username }}</span>
+              </div>
+              <div class="list-item">
+                <strong>Account Type</strong>
+                <span class="muted">{{ profile.get_user_type_display|default:"Not set" }}</span>
+              </div>
+              {% if profile.user_type == "student" %}
+                <div class="list-item">
+                  <strong>Student ID</strong>
+                  <span class="muted">{{ profile.registration_number|default:"Not provided" }}</span>
+                </div>
+              {% elif profile.user_type == "staff" %}
+                <div class="list-item">
+                  <strong>Staff ID</strong>
+                  <span class="muted">{{ profile.employee_id|default:"Not provided" }}</span>
+                </div>
+              {% endif %}
+              <div class="list-item">
+                <strong>Department</strong>
+                <span class="muted">{% if profile.department %}{{ profile.department.name }}{% else %}Not assigned{% endif %}</span>
+              </div>
+              <div class="list-item">
+                <strong>Faculty</strong>
+                <span class="muted">{% if profile.department %}{{ profile.department.faculty.name }}{% else %}Not assigned{% endif %}</span>
+              </div>
+              <div class="list-item">
+                <strong>Role</strong>
+                <span class="muted">{{ profile.get_role_display|default:"Unassigned" }}</span>
+              </div>
+              {% if profile.user_type == "staff" %}
+                <div class="list-item">
+                  <strong>Office / Lab</strong>
+                  <span class="muted">{{ profile.staff_location|default:"Not assigned" }}</span>
+                </div>
+              {% endif %}
+            </div>
+
+            <div class="inline-meta" style="margin-top: 12px;">
+              <button type="submit">Save Profile</button>
+              <a class="button-link secondary" href="{% url 'password_change' %}">Change Password</a>
+              <a class="button-link secondary" href="{% url 'assets:dashboard' %}">Return To Dashboard</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </form>
+  </div>
+</section>
+{% endblock %}

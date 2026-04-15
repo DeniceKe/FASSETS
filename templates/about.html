@@ -2,7 +2,7 @@
 {% block title %}About | FASSETS{% endblock %}
 {% block content %}
 <section class="page-card">
-  <div class="section">
+  <div class="section" id="system-overview">
     <p class="eyebrow">About The System</p>
     <div class="grid two">
       <div>
@@ -29,17 +29,17 @@
 
   <div class="section">
     <div class="grid three">
-      <div class="panel">
+      <div class="panel" id="role-based-access">
         <p class="eyebrow">User Management</p>
         <h3>Role-based access</h3>
-        <p>Supports proposal roles such as Admin, Dean, COD, Lecturer, and Lab Technician, with department-aware access to data and operations.</p>
+        <p>Supports proposal roles such as Admin, Dean, COD, Lecturer, Lab Technician, and Auditor, with department-aware or faculty-wide access based on operational responsibility.</p>
       </div>
       <div class="panel">
         <p class="eyebrow">Asset Management</p>
         <h3>Register and classify assets</h3>
         <p>Capture assets in a centralized database, attach categories and locations, manage status, and maintain consistent identification.</p>
       </div>
-      <div class="panel">
+      <div class="panel" id="workflow-overview">
         <p class="eyebrow">Assignment Workflow</p>
         <h3>Track issue and return</h3>
         <p>Allocate assets to users or labs, monitor return expectations, and prevent double assignment of unavailable items.</p>
@@ -49,10 +49,15 @@
         <h3>Log service history</h3>
         <p>Record preventive and corrective maintenance, track status, assign technicians, and keep resolution history in one place.</p>
       </div>
-      <div class="panel">
+      <div class="panel" id="leadership-oversight">
         <p class="eyebrow">Reporting</p>
         <h3>Support decision-making</h3>
         <p>Generate structured views of asset distribution, assignment activity, and maintenance history for better oversight.</p>
+      </div>
+      <div class="panel">
+        <p class="eyebrow">Audit Oversight</p>
+        <h3>Support internal verification</h3>
+        <p>Auditors can review records across all departments, compare the register with physical assets, flag discrepancies, and generate compliance-ready audit reports.</p>
       </div>
       <div class="panel">
         <p class="eyebrow">Accountability</p>

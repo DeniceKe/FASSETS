@@ -1,0 +1,2111 @@
+{% extends "base.html" %}
+
+{% block title %}{{ resource_config.title }} | FASSETS{% endblock %}
+
+{% block content %}
+  {{ resource_config|json_script:"resource-config" }}
+  {{ workspace_permissions|json_script:"workspace-permissions" }}
+  {{ allocation_shortcuts|json_script:"allocation-shortcuts" }}
+
+  <style>
+    .workspace-shell .section + .section {
+      border-top: 1px solid rgba(36, 67, 118, 0.12);
+    }
+
+    .workspace-layout {
+      display: grid;
+      gap: 14px;
+      grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.95fr);
+      grid-auto-rows: min-content;
+      align-items: start;
+    }
+
+    .workspace-card {
+      display: grid;
+      gap: 12px;
+      align-content: start;
+    }
+
+    .workspace-card.workspace-records-card {
+      gap: 8px;
+    }
+
+    .workspace-editor-card {
+      padding: 14px;
+      border-radius: 18px;
+      align-content: start;
+      background: linear-gradient(180deg, rgba(247, 250, 255, 0.98), rgba(255, 255, 255, 0.94));
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.75);
+    }
+
+    .workspace-editor-card.resource-editor--assets,
+    .workspace-editor-card.resource-editor--categories,
+    .workspace-editor-card.resource-editor--locations {
+      padding: 12px;
+    }
+
+    .workspace-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .workspace-tools {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .workspace-status {
+      padding: 10px 12px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(29, 78, 216, 0.06);
+      color: var(--muted);
+      border: 1px solid rgba(36, 67, 118, 0.12);
+    }
+
+    .workspace-status[data-busy="true"]::before {
+      content: "";
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: currentColor;
+      opacity: 0.45;
+      animation: workspace-pulse 1s ease-in-out infinite;
+    }
+
+    .workspace-resource-guidance {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .workspace-status[data-tone="success"] {
+      background: rgba(16, 185, 129, 0.08);
+      color: #0f766e;
+      border-color: rgba(16, 185, 129, 0.18);
+    }
+
+    .workspace-status[data-tone="error"] {
+      background: rgba(181, 68, 55, 0.08);
+      color: #9f1239;
+      border-color: rgba(181, 68, 55, 0.18);
+    }
+
+    .workspace-notification-banner {
+      display: grid;
+      gap: 8px;
+      padding: 14px 16px;
+      border-radius: 18px;
+      border: 1px solid rgba(29, 78, 216, 0.16);
+      background: linear-gradient(180deg, rgba(239, 246, 255, 0.98), rgba(219, 234, 254, 0.78));
+      box-shadow: 0 16px 28px rgba(29, 78, 216, 0.08);
+    }
+
+    .workspace-notification-banner p,
+    .workspace-notification-banner h2,
+    .workspace-notification-banner h3 {
+      margin: 0;
+    }
+
+    .workspace-table-wrap {
+      overflow-x: auto;
+    }
+
+    .workspace-form {
+      display: grid;
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      gap: 8px 10px;
+    }
+
+    .workspace-form-field {
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+      grid-column: span 6;
+    }
+
+    .workspace-form-field label {
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+
+    .workspace-form-field input,
+    .workspace-form-field select,
+    .workspace-form-field textarea {
+      margin: 0;
+    }
+
+    .workspace-form-field.span-2,
+    .workspace-form-actions.span-2 {
+      grid-column: 1 / -1;
+    }
+
+    .workspace-form-field textarea {
+      min-height: 72px;
+      resize: vertical;
+    }
+
+    .workspace-input-with-prefix {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      align-items: stretch;
+      width: 100%;
+      max-width: 100%;
+      border: 1px solid rgba(36, 67, 118, 0.12);
+      border-radius: 14px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.96);
+    }
+
+    .workspace-input-prefix {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 56px;
+      padding: 0 10px;
+      background: rgba(29, 78, 216, 0.08);
+      border-right: 1px solid rgba(36, 67, 118, 0.12);
+      color: var(--brand-deep);
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+
+    .workspace-input-with-prefix input {
+      width: 100%;
+      min-width: 0;
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+    }
+
+    .workspace-form-field input[type="file"] {
+      padding: 8px;
+    }
+
+    .workspace-form-field input[type="file"]::file-selector-button {
+      margin-right: 12px;
+      padding: 6px 10px;
+      border: 0;
+      border-radius: 999px;
+      background: linear-gradient(135deg, var(--brand), var(--brand-deep));
+      color: #fff;
+      cursor: pointer;
+    }
+
+    .workspace-file-preview {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      width: fit-content;
+      max-width: 100%;
+      padding: 10px 12px;
+      border-radius: 16px;
+      border: 1px dashed rgba(29, 78, 216, 0.24);
+      background: rgba(29, 78, 216, 0.05);
+      box-sizing: border-box;
+    }
+
+    .workspace-file-preview img,
+    .workspace-thumbnail {
+      display: block;
+      object-fit: cover;
+      border-radius: 14px;
+      border: 1px solid rgba(29, 78, 216, 0.14);
+      background: #fff;
+      box-shadow: 0 10px 18px rgba(22, 48, 101, 0.08);
+    }
+
+    .workspace-file-preview img {
+      width: 64px;
+      height: 64px;
+    }
+
+    .workspace-file-preview span {
+      color: var(--muted);
+      font-size: 0.92rem;
+      word-break: break-word;
+    }
+
+    .workspace-thumbnail {
+      width: 48px;
+      height: 48px;
+    }
+
+    .workspace-form-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 2px;
+      padding-top: 4px;
+      border-top: 1px solid rgba(36, 67, 118, 0.08);
+    }
+
+    .workspace-form-note {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.56;
+      box-shadow: none;
+      transform: none;
+    }
+
+    .workspace-required-marker {
+      color: #b45309;
+      font-weight: 700;
+      margin-left: 4px;
+    }
+
+    .workspace-editor-shell {
+      display: grid;
+      gap: 8px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid rgba(36, 67, 118, 0.08);
+    }
+
+    .workspace-editor-shell .eyebrow {
+      margin-bottom: 4px;
+    }
+
+    .workspace-workflow-panel {
+      display: grid;
+      gap: 10px;
+      padding: 12px 14px;
+      border-radius: 16px;
+      border: 1px solid rgba(36, 67, 118, 0.12);
+      background: rgba(255, 255, 255, 0.78);
+    }
+
+    .workspace-workflow-label {
+      margin: 0 0 4px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .workspace-workflow-panel strong,
+    .workspace-workflow-panel p {
+      margin: 0;
+    }
+
+    .workspace-workflow-panel p:last-child {
+      color: var(--muted);
+    }
+
+    .workspace-editor-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .workspace-editor-chip {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: fit-content;
+      padding: 7px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(36, 67, 118, 0.12);
+      background: rgba(29, 78, 216, 0.08);
+      color: var(--brand-deep);
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    .workspace-help-panel {
+      border: 1px solid rgba(36, 67, 118, 0.12);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.72);
+      overflow: hidden;
+    }
+
+    .workspace-help-panel summary {
+      cursor: pointer;
+      padding: 10px 14px;
+      font-weight: 600;
+      color: var(--ink);
+    }
+
+    .workspace-help-copy {
+      display: grid;
+      gap: 8px;
+      padding: 0 14px 14px;
+    }
+
+    .workspace-help-copy p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .workspace-editor-card.resource-editor--assets .workspace-form-field.field-name {
+      grid-column: span 7;
+    }
+
+    .workspace-editor-card.resource-editor--assets .workspace-form-field.field-category {
+      grid-column: span 5;
+    }
+
+    .workspace-editor-card.resource-editor--assets .workspace-form-field.field-purchase_date,
+    .workspace-editor-card.resource-editor--assets .workspace-form-field.field-purchase_cost,
+    .workspace-editor-card.resource-editor--assets .workspace-form-field.field-supplier,
+    .workspace-editor-card.resource-editor--assets .workspace-form-field.field-condition,
+    .workspace-editor-card.resource-editor--assets .workspace-form-field.field-status,
+    .workspace-editor-card.resource-editor--assets .workspace-form-field.field-disposal_reference,
+    .workspace-editor-card.resource-editor--assets .workspace-form-field.field-warranty_expiry,
+    .workspace-editor-card.resource-editor--assets .workspace-form-field.field-serial_number {
+      grid-column: span 4;
+    }
+
+    .workspace-editor-card.resource-editor--assets .workspace-form-field.field-current_location {
+      grid-column: span 8;
+    }
+
+    .workspace-editor-card.resource-editor--assets .workspace-form-field.field-disposal_reason {
+      grid-column: 1 / -1;
+    }
+
+    .workspace-editor-card.resource-editor--categories .workspace-form-field.field-name {
+      grid-column: span 8;
+    }
+
+    .workspace-editor-card.resource-editor--categories .workspace-form-field.field-depreciation_years {
+      grid-column: span 4;
+    }
+
+    .workspace-editor-card.resource-editor--locations .workspace-form-field.field-department {
+      grid-column: 1 / -1;
+    }
+
+    .workspace-editor-card.resource-editor--locations .workspace-form-field.field-building,
+    .workspace-editor-card.resource-editor--locations .workspace-form-field.field-floor,
+    .workspace-editor-card.resource-editor--locations .workspace-form-field.field-room {
+      grid-column: span 4;
+    }
+
+    .workspace-editor-card.resource-editor--locations .workspace-form-field.field-room_type {
+      grid-column: span 6;
+    }
+
+    .workspace-row-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .workspace-delete-action {
+      background: rgba(181, 68, 55, 0.12);
+      border: 1px solid rgba(181, 68, 55, 0.18);
+      color: #9f1239;
+      box-shadow: none;
+    }
+
+    .workspace-delete-action:hover {
+      background: rgba(181, 68, 55, 0.18);
+      border-color: rgba(181, 68, 55, 0.24);
+    }
+
+    .workspace-checkbox {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--ink);
+    }
+
+    .workspace-toolbar {
+      display: grid;
+      gap: 6px;
+      grid-template-columns: minmax(240px, 1fr) auto;
+      align-items: end;
+    }
+
+    .workspace-toolbar label {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .workspace-records-card .workspace-head {
+      margin-bottom: 0;
+    }
+
+    .workspace-records-card .workspace-status {
+      padding: 8px 10px;
+    }
+
+    .workspace-records-card .workspace-table-wrap {
+      margin-top: -2px;
+    }
+
+    .workspace-empty {
+      padding: 14px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.55);
+      border: 1px dashed rgba(36, 67, 118, 0.12);
+    }
+
+    @media (max-width: 980px) {
+      .workspace-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .workspace-toolbar,
+      .workspace-form {
+        grid-template-columns: 1fr;
+      }
+
+      .workspace-form-field {
+        grid-column: 1 / -1;
+      }
+    }
+
+    /* Aesthetic extension: Ivory Dossier Deco */
+    .workspace-layout {
+      gap: 0;
+      grid-template-columns: minmax(0, 1.3fr) minmax(320px, 0.9fr);
+    }
+
+    .workspace-card.workspace-records-card,
+    .workspace-editor-card {
+      position: relative;
+      background:
+        linear-gradient(180deg, rgba(248, 252, 253, 0.94), rgba(230, 244, 246, 0.84));
+      border: 1px solid rgba(124, 171, 179, 0.14);
+      box-shadow: 0 22px 38px rgba(91, 132, 140, 0.14);
+      backdrop-filter: blur(16px);
+      overflow: hidden;
+    }
+
+    .workspace-card.workspace-records-card::before,
+    .workspace-editor-card::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto auto 0;
+      width: 140px;
+      height: 2px;
+      background: linear-gradient(90deg, rgba(121, 184, 193, 0), rgba(121, 184, 193, 0.9), rgba(207, 234, 237, 0));
+      pointer-events: none;
+    }
+
+    .workspace-card.workspace-records-card {
+      transform: translateY(26px);
+      border-radius: 30px 18px 24px 18px;
+      z-index: 1;
+    }
+
+    .workspace-editor-card {
+      transform: translateX(-26px);
+      border-radius: 22px 32px 22px 30px;
+      padding: 18px;
+    }
+
+    .workspace-empty {
+      background: rgba(248, 252, 253, 0.66);
+      border-color: rgba(29, 127, 140, 0.14);
+    }
+
+    .workspace-status {
+      background: rgba(121, 184, 193, 0.08);
+      color: #2d616b;
+      border-color: rgba(121, 184, 193, 0.18);
+    }
+
+    .workspace-status[data-tone="success"] {
+      background: rgba(29, 127, 140, 0.08);
+      color: #194953;
+      border-color: rgba(29, 127, 140, 0.18);
+    }
+
+    .workspace-status[data-tone="error"] {
+      background: rgba(180, 79, 67, 0.08);
+      color: #8d3a32;
+      border-color: rgba(180, 79, 67, 0.18);
+    }
+
+    .workspace-table-wrap table {
+      background: rgba(248, 252, 253, 0.68);
+      border: 1px solid rgba(124, 171, 179, 0.12);
+    }
+
+    .workspace-table-wrap thead {
+      background: linear-gradient(90deg, rgba(121, 184, 193, 0.16), rgba(207, 234, 237, 0.08));
+    }
+
+    .workspace-table-wrap th {
+      color: var(--brand);
+    }
+
+    .workspace-head h2,
+    .workspace-editor-shell h2,
+    .workspace-shell h1 {
+      color: #2b2317;
+    }
+
+    .workspace-row-actions button:hover {
+      transform: translateY(-3px) rotate(-1deg);
+    }
+
+    @media (max-width: 980px) {
+      .workspace-layout {
+        gap: 12px;
+        grid-template-columns: 1fr;
+      }
+
+      .workspace-card.workspace-records-card,
+      .workspace-editor-card {
+        transform: none;
+      }
+    }
+
+    @keyframes workspace-pulse {
+      0%, 100% {
+        opacity: 0.35;
+        transform: scale(0.92);
+      }
+      50% {
+        opacity: 0.9;
+        transform: scale(1);
+      }
+    }
+  </style>
+
+  <section class="page-card workspace-shell">
+    <div class="section">
+      <div class="toolbar">
+        <div>
+          <p class="eyebrow">Workspace Tools</p>
+          <h1>{{ resource_config.title }}</h1>
+          <p>{{ workspace_description }}</p>
+        </div>
+        <div class="workspace-tools">
+          <span class="chip">Role: {{ user_role }}</span>
+          <a class="button-link secondary" href="{% url 'assets:dashboard' %}#role-workspace">Back To Dashboard</a>
+        </div>
+      </div>
+    </div>
+
+    {% if focused_notification %}
+      <div class="section">
+        <div class="workspace-notification-banner">
+          <p class="eyebrow">Notification Reason</p>
+          <h3>{{ focused_notification.title }}</h3>
+          <p>{{ focused_notification.message }}</p>
+          <p><strong>What you need to do:</strong> {{ focused_notification.action_required }}</p>
+          {% if focused_notification.context_note %}
+            <p><strong>More context:</strong> {{ focused_notification.context_note }}</p>
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+
+    <div class="section">
+      <div class="workspace-layout">
+        <section class="panel workspace-card workspace-records-card">
+          <div class="workspace-head">
+            <div>
+              <p class="eyebrow">Records</p>
+              <h2>{{ resource_config.singular }} list</h2>
+            </div>
+            {% if workspace_permissions.can_create %}
+              <button type="button" id="new-record-button">New {{ resource_config.singular }}</button>
+            {% else %}
+              <span class="chip">Read-only list</span>
+            {% endif %}
+          </div>
+
+          <div class="workspace-toolbar">
+            <div>
+              <label for="resource-search-input">Search {{ resource_config.singular|lower }}s</label>
+              <input
+                id="resource-search-input"
+                type="search"
+                placeholder="Search this list"
+                autocomplete="off"
+              >
+            </div>
+            <button type="button" class="secondary" id="clear-search-button">Clear Search</button>
+          </div>
+
+          <p class="workspace-resource-guidance">Search by familiar details such as names, IDs, email addresses, serial numbers, or locations.</p>
+          <div id="resource-status" class="workspace-status" role="status" aria-live="polite" aria-atomic="true">Loading records...</div>
+          <div class="workspace-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  {% for column in resource_config.list_columns %}
+                    <th>{{ column.label }}</th>
+                  {% endfor %}
+                  {% if workspace_permissions.can_edit %}
+                    <th>Actions</th>
+                  {% endif %}
+                </tr>
+              </thead>
+              <tbody id="resource-table-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel workspace-card workspace-editor-card {% if resource == 'assets' or resource == 'categories' or resource == 'locations' %}resource-editor--{{ resource }}{% endif %}">
+          {% if workspace_permissions.can_create or workspace_permissions.can_edit %}
+            <div class="workspace-editor-shell">
+              <p class="eyebrow">Editor</p>
+              <h2 id="editor-title">
+                {% if workspace_permissions.can_create %}
+                  Create {{ resource_config.singular }}
+                {% else %}
+                  Update {{ resource_config.singular }}
+                {% endif %}
+              </h2>
+              <div class="workspace-workflow-panel" aria-live="polite" aria-atomic="true">
+                <div>
+                  <p class="workspace-workflow-label">Task progress</p>
+                  <strong id="workflow-step-label">Step 1 of 3: Search or start a new {{ resource_config.singular|lower }}</strong>
+                  <p id="workflow-step-help">Choose a record from the list or start a new one, then complete the required details.</p>
+                </div>
+                <div class="workspace-editor-meta">
+                  <span class="workspace-editor-chip" id="editor-mode-badge">New draft</span>
+                  <span class="workspace-editor-chip" id="required-fields-remaining">0 required fields left</span>
+                </div>
+              </div>
+              <details class="workspace-help-panel">
+                <summary>Quick help</summary>
+                <div class="workspace-help-copy">
+                  <p>Search using details people already know, then open the record you want to review or update.</p>
+                  <p>Required fields are marked with * and Save stays unavailable until those details are complete.</p>
+                  <p>If you clear the form by mistake, use Restore Last Clear to bring back the most recent draft.</p>
+                </div>
+              </details>
+            </div>
+
+            <form id="resource-form" class="workspace-form">
+              {% csrf_token %}
+              {% if resource == 'allocations' %}
+                <div class="workspace-form-field field-recipient_mode">
+                  <label for="field-recipient_mode">Allocate To</label>
+                  <select id="field-recipient_mode" data-field="recipient_mode">
+                    <option value="user">User</option>
+                    <option value="lab">Lab</option>
+                  </select>
+                </div>
+              {% endif %}
+              {% for field in resource_config.fields %}
+                <div class="workspace-form-field field-{{ field.name }} {% if field.type == 'textarea' or field.type == 'file' %}span-2{% endif %}">
+                  {% if field.type == 'checkbox' %}
+                    <label class="workspace-checkbox">
+                      <input
+                        type="checkbox"
+                        name="{{ field.name }}"
+                        data-field="{{ field.name }}"
+                      >
+                      <span>{{ field.label }}{% if field.required %}<span class="workspace-required-marker" aria-hidden="true">*</span>{% endif %}</span>
+                    </label>
+                  {% else %}
+                    <label for="field-{{ field.name }}">{{ field.label }}{% if field.required %}<span class="workspace-required-marker" aria-hidden="true">*</span>{% endif %}</label>
+                    {% if field.type == 'textarea' %}
+                      <textarea
+                        id="field-{{ field.name }}"
+                        name="{{ field.name }}"
+                        data-field="{{ field.name }}"
+                        {% if field.required %}required{% endif %}
+                      ></textarea>
+                    {% elif field.type == 'select' %}
+                      <select
+                        id="field-{{ field.name }}"
+                        name="{{ field.name }}"
+                        data-field="{{ field.name }}"
+                        {% if field.options_endpoint %}data-options-endpoint="{{ field.options_endpoint }}"{% endif %}
+                        {% if field.option_label_keys %}data-option-label-keys="{{ field.option_label_keys|join:',' }}"{% endif %}
+                        {% if field.required %}required{% endif %}
+                      >
+                        <option value="">Select {{ field.label }}</option>
+                        {% if field.options %}
+                          {% for option in field.options %}
+                            <option value="{{ option.value }}">{{ option.label }}</option>
+                          {% endfor %}
+                        {% endif %}
+                      </select>
+                    {% elif field.type == 'file' %}
+                      <input
+                        id="field-{{ field.name }}"
+                        name="{{ field.name }}"
+                        type="file"
+                        data-field="{{ field.name }}"
+                        {% if field.accept %}accept="{{ field.accept }}"{% endif %}
+                        {% if field.required %}required{% endif %}
+                      >
+                      <div class="workspace-file-preview" data-preview-for="{{ field.name }}" hidden>
+                        <img src="" alt="{{ field.label }} preview" data-preview-image="{{ field.name }}">
+                        <span data-preview-text="{{ field.name }}"></span>
+                      </div>
+                    {% else %}
+                      {% if field.prefix %}
+                        <div class="workspace-input-with-prefix">
+                          <span class="workspace-input-prefix">{{ field.prefix }}</span>
+                          <input
+                            id="field-{{ field.name }}"
+                            name="{{ field.name }}"
+                            type="{{ field.type }}"
+                            data-field="{{ field.name }}"
+                            {% if field.step %}step="{{ field.step }}"{% endif %}
+                            {% if field.required %}required{% endif %}
+                          >
+                        </div>
+                      {% else %}
+                        <input
+                          id="field-{{ field.name }}"
+                          name="{{ field.name }}"
+                          type="{{ field.type }}"
+                          data-field="{{ field.name }}"
+                          {% if field.step %}step="{{ field.step }}"{% endif %}
+                          {% if field.required %}required{% endif %}
+                        >
+                      {% endif %}
+                    {% endif %}
+                  {% endif %}
+                </div>
+              {% endfor %}
+
+              <p class="workspace-form-note span-2">Required fields are marked with *.</p>
+              <div class="workspace-form-actions span-2">
+                <button type="submit" id="save-record-button">
+                  {% if workspace_permissions.can_create %}
+                    Save {{ resource_config.singular }}
+                  {% else %}
+                    Update {{ resource_config.singular }}
+                  {% endif %}
+                </button>
+                <button type="button" class="secondary" id="reset-record-button">Clear</button>
+                <button type="button" class="secondary" id="restore-record-button" hidden>Restore Last Clear</button>
+                {% if workspace_permissions.can_delete %}
+                  <button type="button" id="delete-record-button" hidden>Delete</button>
+                {% else %}
+                  <button type="button" id="delete-record-button" hidden></button>
+                {% endif %}
+              </div>
+            </form>
+          {% else %}
+            <div class="workspace-empty">
+              <h3>Read-only access</h3>
+              <p>Your current role can review these records from your account, but create and edit actions are reserved for higher-permission roles.</p>
+            </div>
+          {% endif %}
+        </section>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    const resourceConfig = JSON.parse(document.getElementById('resource-config').textContent);
+    const workspacePermissions = JSON.parse(document.getElementById('workspace-permissions').textContent);
+    const allocationShortcuts = JSON.parse(document.getElementById('allocation-shortcuts').textContent);
+    const currentResource = "{{ resource|escapejs }}";
+    const currentEditId = "{{ edit_id|escapejs }}";
+    const form = document.getElementById('resource-form');
+    const tableBody = document.getElementById('resource-table-body');
+    const statusBox = document.getElementById('resource-status');
+    const editorTitle = document.getElementById('editor-title');
+    const deleteButton = document.getElementById('delete-record-button');
+    const saveButton = document.getElementById('save-record-button');
+    const resetButton = document.getElementById('reset-record-button');
+    const restoreButton = document.getElementById('restore-record-button');
+    const newRecordButton = document.getElementById('new-record-button');
+    const searchInput = document.getElementById('resource-search-input');
+    const clearSearchButton = document.getElementById('clear-search-button');
+    const workflowStepLabel = document.getElementById('workflow-step-label');
+    const workflowStepHelp = document.getElementById('workflow-step-help');
+    const editorModeBadge = document.getElementById('editor-mode-badge');
+    const requiredFieldsRemaining = document.getElementById('required-fields-remaining');
+    const currentUrl = new URL(window.location.href);
+    const allocationPrefill = {
+      assetId: currentUrl.searchParams.get('asset') || '',
+      userId: currentUrl.searchParams.get('user') || '',
+      recipient: currentUrl.searchParams.get('recipient') || '',
+      conditionOut: currentUrl.searchParams.get('condition_out') || '',
+    };
+    const initialSearchValue = currentUrl.searchParams.get('search') || '';
+
+    const hasEditor = Boolean(form);
+    const canLaunchAllocationShortcut = Boolean(allocationShortcuts.enabled && currentResource === 'assets');
+    const showActionColumn = Boolean(workspacePermissions.can_edit || canLaunchAllocationShortcut);
+
+    let records = [];
+    let filteredRecords = [];
+    let editingId = currentEditId || null;
+    let currentSearch = initialSearchValue.trim().toLowerCase();
+    let requestState = 'idle';
+    let baselineSnapshot = '';
+    let lastClearedSnapshot = '';
+    const filePreviewUrls = {};
+
+    if (searchInput && initialSearchValue) {
+      searchInput.value = initialSearchValue;
+    }
+
+    function getCookie(name) {
+      const cookieValue = document.cookie
+        .split('; ')
+        .find(row => row.startsWith(name + '='));
+      return cookieValue ? decodeURIComponent(cookieValue.split('=')[1]) : '';
+    }
+
+    function isEditableElement(target) {
+      return Boolean(target && target.closest('input, textarea, select, [contenteditable="true"]'));
+    }
+
+    function focusSearchInput() {
+      if (!searchInput) return;
+      searchInput.focus();
+      if (typeof searchInput.select === 'function') {
+        searchInput.select();
+      }
+    }
+
+    function focusFirstEditorInput() {
+      if (!hasEditor) return;
+      const firstInput = form.querySelector('input:not([type="hidden"]):not([type="checkbox"]):not([type="file"]), textarea, select');
+      if (firstInput) {
+        firstInput.focus();
+      }
+    }
+
+    function submitEditorForm() {
+      if (!hasEditor) return;
+      if (typeof form.requestSubmit === 'function') {
+        form.requestSubmit();
+        return;
+      }
+      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    }
+
+    async function fetchAll(url) {
+      const results = [];
+      let nextUrl = url;
+
+      while (nextUrl) {
+        const response = await fetch(nextUrl, { credentials: 'same-origin' });
+        if (!response.ok) {
+          const errorText = await response.text().catch(() => '');
+          throw new Error(`Failed to load ${nextUrl} (${response.status}${errorText ? `: ${errorText.slice(0, 160)}` : ''})`);
+        }
+        const data = await response.json();
+        if (Array.isArray(data)) {
+          results.push(...data);
+          nextUrl = null;
+        } else {
+          results.push(...(data.results || []));
+          nextUrl = data.next;
+        }
+      }
+
+      return results;
+    }
+
+    function describeOption(option, labelKeys) {
+      const pieces = (labelKeys || [])
+        .map(key => option[key])
+        .filter(Boolean);
+      return pieces.join(' - ') || option.name || option.username || option.id;
+    }
+
+    async function populateDynamicSelects() {
+      if (!hasEditor) return;
+
+      const selects = form.querySelectorAll('select[data-options-endpoint]');
+
+      for (const select of selects) {
+        const endpoint = select.dataset.optionsEndpoint;
+        const labelKeys = (select.dataset.optionLabelKeys || '').split(',').filter(Boolean);
+        const options = await fetchAll(endpoint);
+        const placeholder = select.querySelector('option')?.outerHTML || '<option value="">Select an option</option>';
+        select.innerHTML = placeholder;
+        options.forEach(option => {
+          const element = document.createElement('option');
+          element.value = option.id;
+          element.textContent = describeOption(option, labelKeys);
+          select.appendChild(element);
+        });
+      }
+    }
+
+    function formatValue(record, column) {
+      const value = record[column.key];
+      if (typeof value === 'boolean') {
+        return value ? 'Yes' : 'No';
+      }
+      return value || '-';
+    }
+
+    function getFieldInput(name) {
+      return form ? form.querySelector(`[name="${name}"]`) : null;
+    }
+
+    function getFileFields() {
+      return (resourceConfig.fields || []).filter(field => field.type === 'file');
+    }
+
+    function getFilePreviewNodes(fieldName) {
+      return {
+        wrapper: form ? form.querySelector(`[data-preview-for="${fieldName}"]`) : null,
+        image: form ? form.querySelector(`[data-preview-image="${fieldName}"]`) : null,
+        text: form ? form.querySelector(`[data-preview-text="${fieldName}"]`) : null,
+      };
+    }
+
+    function releaseFilePreviewUrl(fieldName) {
+      if (!filePreviewUrls[fieldName]) {
+        return;
+      }
+
+      URL.revokeObjectURL(filePreviewUrls[fieldName]);
+      delete filePreviewUrls[fieldName];
+    }
+
+    function setFilePreview(fieldName, { url = '', text = '' } = {}) {
+      const { wrapper, image, text: textNode } = getFilePreviewNodes(fieldName);
+      if (!wrapper || !image || !textNode) {
+        return;
+      }
+
+      if (!url) {
+        wrapper.hidden = true;
+        image.removeAttribute('src');
+        textNode.textContent = '';
+        return;
+      }
+
+      wrapper.hidden = false;
+      image.src = url;
+      textNode.textContent = text;
+    }
+
+    function getFilePreviewKey(field) {
+      return field.preview_field || `${field.name}_url`;
+    }
+
+    function syncFilePreviewFromRecord(field, record) {
+      releaseFilePreviewUrl(field.name);
+      const previewUrl = record?.[getFilePreviewKey(field)] || '';
+      setFilePreview(field.name, {
+        url: previewUrl,
+        text: previewUrl ? 'Current image' : '',
+      });
+    }
+
+    function getFieldDefinition(name) {
+      return (resourceConfig.fields || []).find(field => field.name === name) || null;
+    }
+
+    function formatFieldLabel(name) {
+      const configuredField = getFieldDefinition(name);
+      if (configuredField?.label) {
+        return configuredField.label;
+      }
+
+      return String(name || '')
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, character => character.toUpperCase());
+    }
+
+    function flattenErrorMessages(errorData, prefix = '') {
+      if (!errorData) {
+        return [];
+      }
+
+      if (typeof errorData === 'string') {
+        return [prefix ? `${prefix}: ${errorData}` : errorData];
+      }
+
+      if (Array.isArray(errorData)) {
+        return errorData.flatMap(item => flattenErrorMessages(item, prefix));
+      }
+
+      if (typeof errorData === 'object') {
+        return Object.entries(errorData).flatMap(([key, value]) => {
+          const nextPrefix = key === 'non_field_errors' ? prefix : formatFieldLabel(key);
+          return flattenErrorMessages(value, nextPrefix);
+        });
+      }
+
+      return [String(errorData)];
+    }
+
+    function formatErrorMessage(errorData, fallbackMessage = 'Please review the highlighted details and try again.') {
+      const messages = flattenErrorMessages(errorData).filter(Boolean);
+      return messages.length ? messages.join(' ') : fallbackMessage;
+    }
+
+    function captureFormSnapshot() {
+      if (!hasEditor) {
+        return '';
+      }
+
+      const snapshot = {
+        editingId,
+        recipientMode: getRecipientModeInput() ? getRecipientModeInput().value : '',
+        fields: {},
+      };
+
+      resourceConfig.fields.forEach(field => {
+        const input = getFieldInput(field.name);
+        if (!input) {
+          return;
+        }
+
+        if (field.type === 'checkbox') {
+          snapshot.fields[field.name] = input.checked;
+          return;
+        }
+
+        if (field.type === 'file') {
+          snapshot.fields[field.name] = Array.from(input.files || []).map(file => file.name);
+          return;
+        }
+
+        snapshot.fields[field.name] = input.value;
+      });
+
+      return JSON.stringify(snapshot);
+    }
+
+    function storeBaselineSnapshot() {
+      if (!hasEditor) {
+        return;
+      }
+
+      baselineSnapshot = captureFormSnapshot();
+      syncEditorExperience();
+    }
+
+    function hasUnsavedChanges() {
+      if (!hasEditor) {
+        return false;
+      }
+
+      return captureFormSnapshot() !== baselineSnapshot;
+    }
+
+    function inputHasValue(input) {
+      if (!input) {
+        return false;
+      }
+
+      if (input.type === 'checkbox') {
+        return input.checked;
+      }
+
+      if (input.type === 'file') {
+        const previewWrapper = input.name ? form.querySelector(`[data-preview-for="${input.name}"]`) : null;
+        return Boolean((input.files && input.files.length) || (previewWrapper && !previewWrapper.hidden));
+      }
+
+      return Boolean(String(input.value || '').trim());
+    }
+
+    function getVisibleRequiredInputs() {
+      if (!hasEditor) {
+        return [];
+      }
+
+      return Array.from(form.querySelectorAll('[required]')).filter(input => !input.disabled && !input.closest('[hidden]'));
+    }
+
+    function getMissingRequiredFields() {
+      return getVisibleRequiredInputs().filter(input => !inputHasValue(input) || !input.checkValidity());
+    }
+
+    function syncEditorExperience() {
+      if (!hasEditor) {
+        return;
+      }
+
+      const missingRequired = getMissingRequiredFields();
+      const missingCount = missingRequired.length;
+      const unsavedChanges = hasUnsavedChanges();
+      const resourceName = resourceConfig.singular.toLowerCase();
+
+      if (requiredFieldsRemaining) {
+        requiredFieldsRemaining.textContent = `${missingCount} required field${missingCount === 1 ? '' : 's'} left`;
+      }
+
+      if (editorModeBadge) {
+        if (requestState === 'saving') {
+          editorModeBadge.textContent = 'Saving changes';
+        } else if (requestState === 'deleting') {
+          editorModeBadge.textContent = 'Deleting record';
+        } else if (editingId) {
+          editorModeBadge.textContent = `Editing record #${editingId}`;
+        } else if (unsavedChanges) {
+          editorModeBadge.textContent = 'New draft in progress';
+        } else {
+          editorModeBadge.textContent = 'New draft';
+        }
+      }
+
+      if (workflowStepLabel && workflowStepHelp) {
+        if (requestState === 'loading') {
+          workflowStepLabel.textContent = `Step 1 of 3: Loading ${resourceName} records`;
+          workflowStepHelp.textContent = 'Please wait while the latest records are prepared for review.';
+        } else if (requestState === 'saving') {
+          workflowStepLabel.textContent = `Step 3 of 3: Save the ${resourceName}`;
+          workflowStepHelp.textContent = 'Your changes are being saved now.';
+        } else if (requestState === 'deleting') {
+          workflowStepLabel.textContent = `Step 3 of 3: Remove the ${resourceName}`;
+          workflowStepHelp.textContent = 'The selected record is being deleted now.';
+        } else if (editingId || unsavedChanges) {
+          workflowStepLabel.textContent = missingCount
+            ? 'Step 2 of 3: Complete the remaining details'
+            : `Step 3 of 3: Save the ${resourceName}`;
+          workflowStepHelp.textContent = missingCount
+            ? 'Finish the required fields, then save your changes.'
+            : 'Everything required is ready. You can save now.';
+        } else {
+          workflowStepLabel.textContent = `Step 1 of 3: Search or start a new ${resourceName}`;
+          workflowStepHelp.textContent = `Choose a ${resourceName} from the list or start a new one, then complete the required details.`;
+        }
+      }
+
+      if (saveButton) {
+        saveButton.disabled = requestState !== 'idle' || missingCount > 0;
+      }
+
+      if (resetButton) {
+        resetButton.disabled = requestState !== 'idle';
+      }
+
+      if (newRecordButton) {
+        newRecordButton.disabled = requestState !== 'idle';
+      }
+
+      if (deleteButton) {
+        deleteButton.disabled = requestState !== 'idle' || !editingId;
+      }
+
+      if (restoreButton) {
+        restoreButton.hidden = !lastClearedSnapshot;
+        restoreButton.disabled = requestState !== 'idle' || !lastClearedSnapshot;
+      }
+    }
+
+    function setRequestState(nextState) {
+      requestState = nextState;
+      statusBox.dataset.busy = nextState === 'idle' ? 'false' : 'true';
+      syncEditorExperience();
+    }
+
+    function buildMissingFieldMessage() {
+      const missingFields = getMissingRequiredFields()
+        .map(input => formatFieldLabel(input.name))
+        .filter(Boolean);
+
+      if (!missingFields.length) {
+        return 'Please review the highlighted details and try again.';
+      }
+
+      return `Complete the required fields before saving: ${missingFields.join(', ')}.`;
+    }
+
+    function confirmDiscardChanges(actionLabel) {
+      if (!hasEditor || !hasUnsavedChanges()) {
+        return true;
+      }
+
+      return window.confirm(`You have unsaved changes. Do you want to ${actionLabel}?`);
+    }
+
+    function restoreLastClearedForm() {
+      if (!hasEditor || !lastClearedSnapshot) {
+        return;
+      }
+
+      const snapshot = JSON.parse(lastClearedSnapshot);
+      editingId = snapshot.editingId || null;
+      const recipientModeInput = getRecipientModeInput();
+      if (recipientModeInput && currentResource === 'allocations') {
+        recipientModeInput.value = snapshot.recipientMode || 'user';
+      }
+
+      resourceConfig.fields.forEach(field => {
+        const input = getFieldInput(field.name);
+        if (!input) {
+          return;
+        }
+
+        const value = snapshot.fields[field.name];
+        if (field.type === 'checkbox') {
+          input.checked = Boolean(value);
+        } else if (field.type === 'file') {
+          input.value = '';
+          releaseFilePreviewUrl(field.name);
+          setFilePreview(field.name);
+        } else {
+          input.value = value ?? '';
+        }
+      });
+
+      toggleAllocationFieldVisibility();
+      toggleUserFieldVisibility();
+      toggleUserIdentityFieldEditability();
+      editorTitle.textContent = editingId
+        ? `Edit ${resourceConfig.singular}`
+        : (workspacePermissions.can_create ? `Create ${resourceConfig.singular}` : `Update ${resourceConfig.singular}`);
+      saveButton.textContent = editingId
+        ? `Update ${resourceConfig.singular}`
+        : (workspacePermissions.can_create ? `Save ${resourceConfig.singular}` : `Update ${resourceConfig.singular}`);
+      if (deleteButton) {
+        deleteButton.hidden = !workspacePermissions.can_delete || !editingId;
+      }
+      history.replaceState({}, '', editingId ? `${window.location.pathname}?edit=${editingId}` : window.location.pathname);
+      setStatus('The last cleared draft has been restored. Re-select any files before saving.', 'success');
+      syncEditorExperience();
+    }
+
+    function bindFilePreviewInputs() {
+      if (!hasEditor) return;
+
+      getFileFields().forEach(field => {
+        const input = getFieldInput(field.name);
+        if (!input) {
+          return;
+        }
+
+        input.addEventListener('change', () => {
+          releaseFilePreviewUrl(field.name);
+          const file = input.files && input.files[0];
+
+          if (!file) {
+            setFilePreview(field.name);
+            return;
+          }
+
+          const objectUrl = URL.createObjectURL(file);
+          filePreviewUrls[field.name] = objectUrl;
+          setFilePreview(field.name, {
+            url: objectUrl,
+            text: file.name,
+          });
+        });
+      });
+    }
+
+    function buildAllocationShortcutUrl(record) {
+      if (!canLaunchAllocationShortcut || !allocationShortcuts.manager_url) {
+        return '';
+      }
+
+      const url = new URL(allocationShortcuts.manager_url, window.location.origin);
+      url.searchParams.set('asset', record.id);
+      url.searchParams.set('recipient', 'user');
+      if (record.condition) {
+        url.searchParams.set('condition_out', record.condition);
+      }
+      return `${url.pathname}${url.search}`;
+    }
+
+    function getFieldWrapper(name) {
+      return form ? form.querySelector(`.field-${name}`) : null;
+    }
+
+    function getRecipientModeInput() {
+      return form ? form.querySelector('#field-recipient_mode') : null;
+    }
+
+    function toggleAllocationFieldVisibility() {
+      if (!hasEditor || currentResource !== 'allocations') {
+        return;
+      }
+
+      const recipientModeInput = getRecipientModeInput();
+      const allocationTypeInput = getFieldInput('allocation_type');
+      const statusInput = getFieldInput('status');
+      const userWrapper = getFieldWrapper('allocated_to');
+      const labWrapper = getFieldWrapper('allocated_to_lab');
+      const userInput = getFieldInput('allocated_to');
+      const labInput = getFieldInput('allocated_to_lab');
+      const expectedReturnWrapper = getFieldWrapper('expected_return_date');
+      const actualReturnWrapper = getFieldWrapper('actual_return_date');
+      const conditionInWrapper = getFieldWrapper('condition_in');
+      if (!recipientModeInput || !allocationTypeInput || !statusInput) {
+        return;
+      }
+
+      const isUserMode = recipientModeInput.value !== 'lab';
+      const isTemporary = allocationTypeInput.value !== 'permanent';
+      const isReturned = statusInput.value === 'returned';
+
+      if (userWrapper) {
+        userWrapper.hidden = !isUserMode;
+      }
+      if (labWrapper) {
+        labWrapper.hidden = isUserMode;
+      }
+      if (userInput) {
+        userInput.required = isUserMode;
+        if (!isUserMode) {
+          userInput.value = '';
+        }
+      }
+      if (labInput) {
+        labInput.required = !isUserMode;
+        if (isUserMode) {
+          labInput.value = '';
+        }
+      }
+
+      if (expectedReturnWrapper) {
+        expectedReturnWrapper.hidden = !isTemporary;
+      }
+      if (!isTemporary) {
+        const expectedReturnInput = getFieldInput('expected_return_date');
+        if (expectedReturnInput) {
+          expectedReturnInput.value = '';
+        }
+      }
+
+      if (actualReturnWrapper) {
+        actualReturnWrapper.hidden = !isReturned;
+      }
+      const actualReturnInput = getFieldInput('actual_return_date');
+      if (!isReturned && actualReturnInput) {
+        actualReturnInput.value = '';
+      }
+
+      if (conditionInWrapper) {
+        conditionInWrapper.hidden = !isReturned;
+      }
+      const conditionInInput = getFieldInput('condition_in');
+      if (!isReturned && conditionInInput) {
+        conditionInInput.value = '';
+      }
+    }
+
+    function toggleAssetDisposalFieldVisibility() {
+      if (!hasEditor || currentResource !== 'assets') {
+        return;
+      }
+
+      const statusInput = getFieldInput('status');
+      const disposalReasonWrapper = getFieldWrapper('disposal_reason');
+      const disposalReferenceWrapper = getFieldWrapper('disposal_reference');
+      const disposalReasonInput = getFieldInput('disposal_reason');
+      const disposalReferenceInput = getFieldInput('disposal_reference');
+      if (!statusInput) {
+        return;
+      }
+
+      const isDisposed = statusInput.value === 'disposed';
+
+      if (disposalReasonWrapper) {
+        disposalReasonWrapper.hidden = !isDisposed;
+      }
+      if (disposalReferenceWrapper) {
+        disposalReferenceWrapper.hidden = !isDisposed;
+      }
+      if (disposalReasonInput) {
+        disposalReasonInput.required = isDisposed;
+        if (!isDisposed) {
+          disposalReasonInput.value = '';
+        }
+      }
+      if (disposalReferenceInput && !isDisposed) {
+        disposalReferenceInput.value = '';
+      }
+    }
+
+    function toggleUserFieldVisibility() {
+      if (!hasEditor || currentResource !== 'users') {
+        return;
+      }
+
+      const userTypeInput = getFieldInput('user_type');
+      const registrationWrapper = getFieldWrapper('registration_number');
+      const employeeWrapper = getFieldWrapper('employee_id');
+      const staffLocationWrapper = getFieldWrapper('staff_location');
+      const registrationInput = getFieldInput('registration_number');
+      const employeeInput = getFieldInput('employee_id');
+      const staffLocationInput = getFieldInput('staff_location');
+      if (!userTypeInput) {
+        return;
+      }
+
+      const isStaff = userTypeInput.value === 'staff';
+      const isStudent = userTypeInput.value === 'student';
+
+      if (registrationWrapper) {
+        registrationWrapper.hidden = isStaff;
+      }
+      if (employeeWrapper) {
+        employeeWrapper.hidden = isStudent;
+      }
+      if (staffLocationWrapper) {
+        staffLocationWrapper.hidden = !isStaff;
+      }
+
+      if (isStaff && registrationInput) {
+        registrationInput.value = '';
+      }
+      if (isStudent) {
+        if (employeeInput) {
+          employeeInput.value = '';
+        }
+        if (staffLocationInput) {
+          staffLocationInput.value = '';
+        }
+      }
+      if (!isStaff && staffLocationInput) {
+        staffLocationInput.value = '';
+      }
+    }
+
+    function toggleUserIdentityFieldEditability() {
+      if (!hasEditor || currentResource !== 'users') {
+        return;
+      }
+
+      const registrationInput = getFieldInput('registration_number');
+      const employeeInput = getFieldInput('employee_id');
+      const isEditing = Boolean(editingId);
+
+      [registrationInput, employeeInput].forEach(input => {
+        if (!input) {
+          return;
+        }
+
+        input.readOnly = isEditing;
+        input.setAttribute('aria-readonly', isEditing ? 'true' : 'false');
+        if (isEditing) {
+          input.classList.add('is-readonly');
+        } else {
+          input.classList.remove('is-readonly');
+        }
+      });
+    }
+
+    function getSearchableKeys() {
+      const configuredKeys = [
+        ...(resourceConfig.title_fields || []),
+        ...(resourceConfig.list_columns || []).map(column => column.key),
+        ...(resourceConfig.fields || []).map(field => field.name),
+      ];
+      const fallbackKeys = [
+        'id',
+        'name',
+        'code',
+        'description',
+        'email',
+        'phone',
+        'address',
+        'asset_id',
+        'serial_number',
+        'barcode',
+        'department_name',
+        'faculty_name',
+        'category_name',
+        'supplier_name',
+        'current_location_label',
+        'role',
+      ];
+
+      return [...new Set([...configuredKeys, ...fallbackKeys])];
+    }
+
+    function buildRecordSearchText(record) {
+      return getSearchableKeys()
+        .map(key => record[key])
+        .filter(value => value !== null && value !== undefined && value !== '')
+        .map(value => String(value).toLowerCase())
+        .join(' ');
+    }
+
+    function updateVisibleRecords() {
+      if (!currentSearch) {
+        filteredRecords = [];
+        return;
+      }
+
+      filteredRecords = records.filter(record => buildRecordSearchText(record).includes(currentSearch));
+    }
+
+    function setStatus(message, tone = 'neutral') {
+      statusBox.textContent = message;
+      statusBox.dataset.tone = tone;
+    }
+
+    function refreshStatus() {
+      const total = records.length;
+      const visible = filteredRecords.length;
+
+      if (currentSearch) {
+        setStatus(`Showing ${visible} of ${total} record${total === 1 ? '' : 's'} for "${searchInput.value.trim()}".`, 'success');
+        return;
+      }
+
+      setStatus(total ? `${total} record${total === 1 ? '' : 's'} available. Start typing to narrow the list.` : `No ${resourceConfig.singular.toLowerCase()} records are available yet.`, 'neutral');
+    }
+
+    function applySearch() {
+      currentSearch = searchInput.value.trim().toLowerCase();
+      updateVisibleRecords();
+      renderTable();
+      refreshStatus();
+      syncEditorExperience();
+    }
+
+    function renderTable() {
+      tableBody.innerHTML = '';
+
+      if (!filteredRecords.length) {
+        const message = currentSearch
+          ? 'No matching records found.'
+          : `Start typing to search ${records.length} available record${records.length === 1 ? '' : 's'}.`;
+        tableBody.innerHTML = `<tr><td colspan="${resourceConfig.list_columns.length + (showActionColumn ? 1 : 0)}">${message}</td></tr>`;
+        return;
+      }
+
+      filteredRecords.forEach(record => {
+        const row = document.createElement('tr');
+
+        resourceConfig.list_columns.forEach(column => {
+          const cell = document.createElement('td');
+          if (column.image) {
+            if (record[column.key]) {
+              const image = document.createElement('img');
+              image.className = 'workspace-thumbnail';
+              image.src = record[column.key];
+              image.alt = `${resourceConfig.singular} thumbnail`;
+              cell.appendChild(image);
+            } else {
+              cell.textContent = '-';
+            }
+          } else if (column.badge && record[column.key]) {
+            cell.innerHTML = `<span class="status ${record[column.key]}">${formatValue(record, column)}</span>`;
+          } else {
+            cell.textContent = formatValue(record, column);
+          }
+          row.appendChild(cell);
+        });
+
+        if (showActionColumn) {
+          const actionCell = document.createElement('td');
+          const actionGroup = document.createElement('div');
+          actionGroup.className = 'workspace-row-actions';
+
+          if (canLaunchAllocationShortcut && record.status === 'available') {
+            const allocateButton = document.createElement('button');
+            allocateButton.type = 'button';
+            allocateButton.textContent = 'Allocate To User';
+            allocateButton.addEventListener('click', () => {
+              const allocationUrl = buildAllocationShortcutUrl(record);
+              if (allocationUrl) {
+                window.location.href = allocationUrl;
+              }
+            });
+            actionGroup.appendChild(allocateButton);
+          }
+
+          const editButton = document.createElement('button');
+          editButton.type = 'button';
+          editButton.className = 'secondary';
+          editButton.textContent = 'Edit';
+          editButton.addEventListener('click', () => loadRecordIntoForm(record.id));
+          actionGroup.appendChild(editButton);
+
+          if (workspacePermissions.can_delete) {
+            const deleteActionButton = document.createElement('button');
+            deleteActionButton.type = 'button';
+            deleteActionButton.className = 'workspace-delete-action';
+            deleteActionButton.textContent = 'Delete';
+            deleteActionButton.addEventListener('click', () => deleteRecord(record.id));
+            actionGroup.appendChild(deleteActionButton);
+          }
+
+          actionCell.appendChild(actionGroup);
+          row.appendChild(actionCell);
+        }
+
+        tableBody.appendChild(row);
+      });
+    }
+
+    function resetForm(options = {}) {
+      if (!hasEditor) return;
+
+      const rememberLastClear = options.rememberLastClear || false;
+      const confirmDiscard = options.confirmDiscard || false;
+
+      if (confirmDiscard && !confirmDiscardChanges('clear this form')) {
+        return;
+      }
+
+      const previousSnapshot = rememberLastClear ? captureFormSnapshot() : '';
+      const shouldRemember = rememberLastClear && hasUnsavedChanges();
+
+      editingId = null;
+      form.reset();
+      getFileFields().forEach(field => {
+        releaseFilePreviewUrl(field.name);
+        setFilePreview(field.name);
+      });
+      const recipientModeInput = getRecipientModeInput();
+      if (recipientModeInput && currentResource === 'allocations') {
+        recipientModeInput.value = 'user';
+      }
+      const allocationTypeInput = getFieldInput('allocation_type');
+      if (allocationTypeInput && currentResource === 'allocations') {
+        allocationTypeInput.value = 'temporary';
+      }
+      editorTitle.textContent = workspacePermissions.can_create
+        ? `Create ${resourceConfig.singular}`
+        : `Update ${resourceConfig.singular}`;
+      saveButton.textContent = workspacePermissions.can_create
+        ? `Save ${resourceConfig.singular}`
+        : `Update ${resourceConfig.singular}`;
+      if (deleteButton) {
+        deleteButton.hidden = true;
+      }
+      toggleAllocationFieldVisibility();
+      toggleAssetDisposalFieldVisibility();
+      toggleUserFieldVisibility();
+      toggleUserIdentityFieldEditability();
+      history.replaceState({}, '', window.location.pathname);
+      if (shouldRemember) {
+        lastClearedSnapshot = previousSnapshot;
+        setStatus('Draft cleared. Use Restore Last Clear if you want to bring it back.', 'neutral');
+      }
+      storeBaselineSnapshot();
+    }
+
+    function applyAllocationShortcutPrefill() {
+      if (!hasEditor || currentResource !== 'allocations' || editingId || (!allocationPrefill.assetId && !allocationPrefill.userId)) {
+        return;
+      }
+
+      const assetInput = getFieldInput('asset');
+      const recipientModeInput = getRecipientModeInput();
+      const userInput = getFieldInput('allocated_to');
+      const labInput = getFieldInput('allocated_to_lab');
+      const conditionOutInput = getFieldInput('condition_out');
+      const statusInput = getFieldInput('status');
+      const allocationDateInput = getFieldInput('allocation_date');
+
+      if (!assetInput) {
+        return;
+      }
+
+      if (allocationPrefill.assetId) {
+        const assetOptionExists = Array.from(assetInput.options || []).some(option => String(option.value) === allocationPrefill.assetId);
+        if (!assetOptionExists) {
+          setStatus('The selected asset is not available in this allocation workspace.', 'error');
+          return;
+        }
+        assetInput.value = allocationPrefill.assetId;
+      }
+
+      if (userInput && allocationPrefill.userId) {
+        const userOptionExists = Array.from(userInput.options || []).some(option => String(option.value) === allocationPrefill.userId);
+        if (userOptionExists) {
+          userInput.value = allocationPrefill.userId;
+        } else {
+          setStatus('The selected user is not available in this allocation workspace.', 'error');
+        }
+      }
+      if (recipientModeInput && allocationPrefill.recipient) {
+        recipientModeInput.value = allocationPrefill.recipient === 'lab' ? 'lab' : 'user';
+      }
+      if (allocationPrefill.recipient === 'user' && labInput) {
+        labInput.value = '';
+      }
+      if (conditionOutInput && allocationPrefill.conditionOut && !conditionOutInput.value) {
+        conditionOutInput.value = allocationPrefill.conditionOut;
+      }
+      const allocationTypeInput = getFieldInput('allocation_type');
+      if (allocationTypeInput && !allocationTypeInput.value) {
+        allocationTypeInput.value = 'temporary';
+      }
+      if (statusInput && !statusInput.value) {
+        statusInput.value = 'active';
+      }
+      if (allocationDateInput && !allocationDateInput.value) {
+        allocationDateInput.value = new Date().toISOString().slice(0, 10);
+      }
+
+      editorTitle.textContent = allocationPrefill.recipient === 'user'
+        ? 'Allocate Asset To User'
+        : `Create ${resourceConfig.singular}`;
+      saveButton.textContent = allocationPrefill.recipient === 'user'
+        ? 'Assign Asset'
+        : `Save ${resourceConfig.singular}`;
+      setStatus(
+        allocationPrefill.userId
+          ? 'Select the asset and complete the remaining allocation details.'
+          : 'Select the user and complete the remaining allocation details.',
+        'success'
+      );
+      toggleAllocationFieldVisibility();
+      toggleAssetDisposalFieldVisibility();
+      if (assetInput && allocationPrefill.userId && !allocationPrefill.assetId) {
+        assetInput.focus();
+      } else if (userInput && allocationPrefill.recipient === 'user') {
+        userInput.focus();
+      }
+      storeBaselineSnapshot();
+    }
+
+    function applyRecordToForm(record) {
+      if (!hasEditor) return;
+
+      const recipientModeInput = getRecipientModeInput();
+      if (recipientModeInput && currentResource === 'allocations') {
+        recipientModeInput.value = record.allocated_to ? 'user' : 'lab';
+      }
+      resourceConfig.fields.forEach(field => {
+        const input = form.querySelector(`[name="${field.name}"]`);
+        if (!input) return;
+
+        const value = record[field.name];
+        if (field.type === 'checkbox') {
+          input.checked = Boolean(value);
+        } else if (field.type === 'file') {
+          input.value = '';
+          syncFilePreviewFromRecord(field, record);
+        } else {
+          input.value = value ?? '';
+        }
+      });
+      toggleAllocationFieldVisibility();
+      toggleAssetDisposalFieldVisibility();
+      toggleUserFieldVisibility();
+      toggleUserIdentityFieldEditability();
+    }
+
+    function loadRecordIntoForm(id) {
+      if (!workspacePermissions.can_edit) return;
+
+      const record = records.find(item => String(item.id) === String(id));
+      if (!record) return;
+
+      editingId = record.id;
+      applyRecordToForm(record);
+      editorTitle.textContent = `Edit ${resourceConfig.singular}`;
+      saveButton.textContent = `Update ${resourceConfig.singular}`;
+      if (deleteButton) {
+        deleteButton.hidden = !workspacePermissions.can_delete;
+      }
+      history.replaceState({}, '', `${window.location.pathname}?edit=${record.id}`);
+      setStatus(`Editing ${resourceConfig.singular.toLowerCase()} #${record.id}.`, 'success');
+      storeBaselineSnapshot();
+    }
+
+    function buildPayload() {
+      const payload = {};
+      const recipientModeInput = getRecipientModeInput();
+      const recipientMode = recipientModeInput && currentResource === 'allocations'
+        ? recipientModeInput.value
+        : '';
+
+      resourceConfig.fields.forEach(field => {
+        const input = form.querySelector(`[name="${field.name}"]`);
+        if (!input) return;
+
+        if (field.type === 'checkbox') {
+          payload[field.name] = input.checked;
+          return;
+        }
+
+        if (field.type === 'file') {
+          return;
+        }
+
+        if (field.read_only_on_edit && editingId) {
+          return;
+        }
+
+        const rawValue = input.value.trim();
+
+        if (currentResource === 'allocations' && field.name === 'allocated_to' && recipientMode === 'lab') {
+          payload[field.name] = null;
+          return;
+        }
+
+        if (currentResource === 'allocations' && field.name === 'allocated_to_lab' && recipientMode !== 'lab') {
+          payload[field.name] = null;
+          return;
+        }
+
+        if (!rawValue) {
+          if (field.omit_if_blank_on_edit && editingId) {
+            return;
+          }
+
+          if (field.type === 'select' || field.type === 'date' || field.type === 'number') {
+            payload[field.name] = null;
+          } else {
+            payload[field.name] = '';
+          }
+          return;
+        }
+
+        payload[field.name] = rawValue;
+      });
+
+      return payload;
+    }
+
+    async function uploadFileFields(record) {
+      const fieldsToUpload = getFileFields().filter(field => {
+        const input = getFieldInput(field.name);
+        return input && input.files && input.files.length;
+      });
+
+      if (!fieldsToUpload.length) {
+        return {
+          ok: true,
+          message: `${resourceConfig.singular} saved successfully.`,
+        };
+      }
+
+      for (const field of fieldsToUpload) {
+        const input = getFieldInput(field.name);
+        const uploadEndpoint = field.upload_endpoint || field.name;
+        const formData = new FormData();
+        formData.append(field.name, input.files[0]);
+
+        const response = await fetch(`${resourceConfig.api_base}${record.id}/${uploadEndpoint}/`, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+          },
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          return {
+            ok: false,
+            message: `${resourceConfig.singular} saved, but ${field.label.toLowerCase()} upload failed: ${JSON.stringify(errorData)}`,
+          };
+        }
+
+        Object.assign(record, await response.json());
+      }
+
+      return {
+        ok: true,
+        message: `${resourceConfig.singular} saved successfully.`,
+      };
+    }
+
+    async function loadRecords() {
+      setRequestState('loading');
+      setStatus('Loading records...');
+      try {
+        records = await fetchAll(resourceConfig.api_base);
+        updateVisibleRecords();
+        renderTable();
+        refreshStatus();
+
+        if (editingId && workspacePermissions.can_edit) {
+          loadRecordIntoForm(editingId);
+        }
+      } finally {
+        setRequestState('idle');
+      }
+    }
+
+    async function submitForm(event) {
+      event.preventDefault();
+      if (!form.reportValidity()) {
+        setStatus(buildMissingFieldMessage(), 'error');
+        syncEditorExperience();
+        return;
+      }
+
+      const payload = buildPayload();
+      const endpoint = editingId ? `${resourceConfig.api_base}${editingId}/` : resourceConfig.api_base;
+      const method = editingId ? 'PATCH' : 'POST';
+
+      setRequestState('saving');
+      setStatus('Saving changes...');
+
+      try {
+        const response = await fetch(endpoint, {
+          method,
+          credentials: 'same-origin',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken'),
+          },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          setStatus(formatErrorMessage(errorData), 'error');
+          return;
+        }
+
+        const record = await response.json();
+        const uploadResult = await uploadFileFields(record);
+        editingId = record.id;
+        await loadRecords();
+        if (workspacePermissions.can_edit) {
+          loadRecordIntoForm(record.id);
+        }
+        setStatus(uploadResult.message, uploadResult.ok ? 'success' : 'error');
+        storeBaselineSnapshot();
+      } finally {
+        setRequestState('idle');
+      }
+    }
+
+    async function deleteRecord(recordId = editingId) {
+      if (!recordId || !workspacePermissions.can_delete) return;
+      if (!window.confirm(`Delete this ${resourceConfig.singular.toLowerCase()}?`)) return;
+
+      setRequestState('deleting');
+      try {
+        const response = await fetch(`${resourceConfig.api_base}${recordId}/`, {
+          method: 'DELETE',
+          credentials: 'same-origin',
+          headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+          },
+        });
+
+        if (!response.ok) {
+          setStatus(`Unable to delete this ${resourceConfig.singular.toLowerCase()}.`, 'error');
+          return;
+        }
+
+        setStatus(`${resourceConfig.singular} deleted.`, 'success');
+        if (String(editingId) === String(recordId)) {
+          resetForm();
+        }
+        await loadRecords();
+      } finally {
+        setRequestState('idle');
+      }
+    }
+
+    function handleGlobalShortcuts(event) {
+      const key = (event.key || '').toLowerCase();
+      const editable = isEditableElement(event.target);
+
+      if ((event.ctrlKey || event.metaKey) && key === 'k') {
+        event.preventDefault();
+        focusSearchInput();
+        return;
+      }
+
+      if ((event.ctrlKey || event.metaKey) && key === 's' && hasEditor) {
+        event.preventDefault();
+        submitEditorForm();
+        return;
+      }
+
+      if (event.altKey && key === 'n' && newRecordButton) {
+        event.preventDefault();
+        resetForm({ rememberLastClear: true, confirmDiscard: true });
+        focusFirstEditorInput();
+        return;
+      }
+
+      if (event.altKey && key === 'delete' && hasEditor && editingId && workspacePermissions.can_delete) {
+        event.preventDefault();
+        deleteRecord();
+        return;
+      }
+
+      if (editable) {
+        return;
+      }
+
+      if (event.key === 'Escape' && hasEditor) {
+        event.preventDefault();
+        resetForm({ rememberLastClear: true, confirmDiscard: true });
+        focusFirstEditorInput();
+      }
+    }
+
+    if (hasEditor) {
+      form.addEventListener('submit', submitForm);
+      resetButton.addEventListener('click', () => resetForm({ rememberLastClear: true, confirmDiscard: true }));
+      const recipientModeInput = getRecipientModeInput();
+      if (recipientModeInput && currentResource === 'allocations') {
+        recipientModeInput.addEventListener('change', toggleAllocationFieldVisibility);
+      }
+      const allocationTypeInput = getFieldInput('allocation_type');
+      if (allocationTypeInput && currentResource === 'allocations') {
+        allocationTypeInput.addEventListener('change', toggleAllocationFieldVisibility);
+      }
+      const allocationStatusInput = getFieldInput('status');
+      if (allocationStatusInput && currentResource === 'allocations') {
+        allocationStatusInput.addEventListener('change', toggleAllocationFieldVisibility);
+      }
+      const userTypeInput = getFieldInput('user_type');
+      if (userTypeInput && currentResource === 'users') {
+        userTypeInput.addEventListener('change', toggleUserFieldVisibility);
+      }
+      const assetStatusInput = getFieldInput('status');
+      if (assetStatusInput && currentResource === 'assets') {
+        assetStatusInput.addEventListener('change', toggleAssetDisposalFieldVisibility);
+      }
+      if (newRecordButton) {
+        newRecordButton.addEventListener('click', () => resetForm({ rememberLastClear: true, confirmDiscard: true }));
+      }
+      if (deleteButton) {
+        deleteButton.addEventListener('click', deleteRecord);
+      }
+      if (restoreButton) {
+        restoreButton.addEventListener('click', restoreLastClearedForm);
+      }
+      form.addEventListener('input', syncEditorExperience);
+      form.addEventListener('change', syncEditorExperience);
+      window.addEventListener('beforeunload', event => {
+        if (!hasUnsavedChanges()) {
+          return;
+        }
+
+        event.preventDefault();
+        event.returnValue = '';
+      });
+    }
+
+    searchInput.addEventListener('input', applySearch);
+    clearSearchButton.addEventListener('click', () => {
+      searchInput.value = '';
+      applySearch();
+      searchInput.focus();
+    });
+    document.addEventListener('keydown', handleGlobalShortcuts);
+
+    (async function init() {
+      try {
+        bindFilePreviewInputs();
+        await populateDynamicSelects();
+        toggleAllocationFieldVisibility();
+        toggleAssetDisposalFieldVisibility();
+        toggleUserFieldVisibility();
+        toggleUserIdentityFieldEditability();
+        await loadRecords();
+        applyAllocationShortcutPrefill();
+        storeBaselineSnapshot();
+      } catch (error) {
+        setStatus(error?.message || 'Failed to load this workspace page.', 'error');
+      } finally {
+        syncEditorExperience();
+      }
+    })();
+  </script>
+{% endblock %}

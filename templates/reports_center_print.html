@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ print_section_title }} | FASSETS</title>
+  <style>
+    :root {
+      color-scheme: light;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: #eef4f8;
+      color: #111827;
+      font-family: "Times New Roman", Georgia, serif;
+    }
+
+    .print-actions {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      padding: 14px 16px;
+      background: rgba(238, 244, 248, 0.96);
+      border-bottom: 1px solid #cbd5e1;
+    }
+
+    .print-actions button,
+    .print-actions a {
+      border: 1px solid #93a8bc;
+      background: #fff;
+      color: #1f2937;
+      text-decoration: none;
+      padding: 10px 16px;
+      border-radius: 999px;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    .report-sheet {
+      width: min(1400px, calc(100% - 40px));
+      margin: 18px auto 28px;
+      background: #fff;
+      padding: 22px 24px 28px;
+      box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+    }
+
+    .eyebrow {
+      margin: 0 0 6px;
+      color: #6b7280;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin-top: 0;
+    }
+
+    .system-name {
+      display: block;
+      margin-bottom: 10px;
+      color: #111827;
+      font-size: 1.2rem;
+      font-weight: 700;
+    }
+
+    .report-title {
+      margin-bottom: 14px;
+      font-size: 1.8rem;
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .meta-card {
+      border: 1px solid #bfd3e5;
+      padding: 10px 12px;
+      min-height: 72px;
+    }
+
+    .meta-card span {
+      display: block;
+      margin-bottom: 8px;
+      color: #315f86;
+      font-size: 0.76rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .meta-card strong {
+      display: block;
+      font-size: 0.96rem;
+      font-weight: 700;
+    }
+
+    .section-heading {
+      margin: 18px 0 10px;
+      padding-top: 10px;
+      border-top: 2px solid #111827;
+    }
+
+    .section-heading h2 {
+      margin-bottom: 0;
+      font-size: 1.08rem;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .summary-card {
+      border: 1px solid #cbd5e1;
+      background: #f8fbfd;
+      padding: 10px 12px;
+    }
+
+    .summary-card strong {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 1.2rem;
+    }
+
+    .summary-card span {
+      color: #475569;
+      font-size: 0.9rem;
+    }
+
+    .report-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      margin-top: 8px;
+      border: 1px solid #b9cad8;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .report-table caption {
+      caption-side: top;
+      margin-bottom: 8px;
+      color: #475569;
+      font-size: 0.92rem;
+      text-align: left;
+    }
+
+    .report-table th,
+    .report-table td {
+      border: 1px solid #c9d6e2;
+      padding: 7px 8px;
+      text-align: left;
+      vertical-align: top;
+      font-size: 8.8pt;
+      line-height: 1.3;
+      white-space: normal;
+      word-break: normal;
+      overflow-wrap: break-word;
+    }
+
+    .report-table th {
+      background: #d7e8f5;
+      color: #28577c;
+      border-color: #b8d0e3;
+      border-bottom: 2px solid #7ea5c1;
+      font-size: 8.1pt;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .report-table tbody tr:nth-child(even) td {
+      background: #f7fbfe;
+    }
+
+    .report-table col.col-tight {
+      width: 8%;
+    }
+
+    .report-table col.col-small {
+      width: 10%;
+    }
+
+    .report-table col.col-medium {
+      width: 12%;
+    }
+
+    .report-table col.col-wide {
+      width: 16%;
+    }
+
+    .report-table col.col-xwide {
+      width: 20%;
+    }
+
+    .report-table .cell-nowrap {
+      white-space: nowrap;
+      overflow-wrap: normal;
+    }
+
+    .report-table .cell-emphasis {
+      font-weight: 700;
+    }
+
+    .report-table .cell-muted {
+      color: #475569;
+    }
+
+    .status-pill {
+      font-weight: 700;
+      color: #1f2937;
+    }
+
+    .approval-block {
+      display: grid;
+      gap: 10px;
+      margin-top: 18px;
+      padding-top: 10px;
+      border-top: 2px solid #111827;
+    }
+
+    .approval-note {
+      margin: 0;
+      color: #475569;
+      font-size: 0.86rem;
+      font-style: italic;
+    }
+
+    .signature-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .signature-card span {
+      display: block;
+      margin-bottom: 18px;
+      color: #315f86;
+      font-size: 0.76rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .signature-line {
+      height: 20px;
+      border-bottom: 1px solid #111827;
+      margin-bottom: 4px;
+    }
+
+    .empty-state {
+      border: 1px solid #cbd5e1;
+      padding: 14px 16px;
+      background: #fbfdff;
+      margin-top: 8px;
+    }
+
+    .empty-state h3 {
+      margin-bottom: 6px;
+      font-size: 1rem;
+    }
+
+    @page {
+      size: A4 landscape;
+      margin: 10mm;
+    }
+
+    @media print {
+      body {
+        background: #fff;
+      }
+
+      .print-actions {
+        display: none;
+      }
+
+      .report-sheet {
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        box-shadow: none;
+      }
+
+      .report-table {
+        margin-top: 6px;
+      }
+
+      .report-table tr {
+        page-break-inside: avoid;
+        break-inside: avoid-row;
+      }
+
+      .report-table thead {
+        display: table-header-group;
+      }
+
+      .report-table tfoot {
+        display: table-row-group;
+      }
+
+      .approval-block {
+        page-break-inside: avoid;
+      }
+    }
+
+    @media (max-width: 900px) {
+      .meta-grid,
+      .summary-grid,
+      .signature-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="print-actions">
+    <button type="button" onclick="window.print()">Print Report</button>
+    <a href="{% url 'assets:reports_center' %}?date_from={{ date_from }}&date_to={{ date_to }}&inventory_status={{ inventory_status }}&asset_condition={{ asset_condition }}&asset_category={{ inventory_category }}&request_status={{ request_status }}&maintenance_status={{ maintenance_status }}#{{ print_section }}">Back To Reports</a>
+  </div>
+
+  <main class="report-sheet">
+    <p class="eyebrow">FASSETS Official Report Copy</p>
+    <strong class="system-name">Fixed Assets Management System</strong>
+    <h1 class="report-title">{{ print_section_title }}</h1>
+
+    <div class="meta-grid">
+      <div class="meta-card">
+        <span>Generated By</span>
+        <strong>{{ report_generated_by }}</strong>
+      </div>
+      <div class="meta-card">
+        <span>Generated On</span>
+        <strong>{{ report_generated_at|date:"M d, Y H:i" }}</strong>
+      </div>
+      <div class="meta-card">
+        <span>Active Filters</span>
+        <strong>{{ report_active_filters_text }}</strong>
+      </div>
+    </div>
+
+    <div class="section-heading">
+      <h2>{{ print_section_heading }}</h2>
+    </div>
+
+    {% if print_section == "inventory-report" %}
+      {% if inventory_assets %}
+        <table class="report-table">
+          <colgroup>
+            <col class="col-small">
+            <col class="col-wide">
+            <col class="col-small">
+            <col class="col-medium">
+            <col class="col-xwide">
+            <col class="col-tight">
+            <col class="col-tight">
+            <col class="col-small">
+            <col class="col-small">
+          </colgroup>
+          <thead>
+            <tr>
+              <th>Asset ID</th>
+              <th>Name</th>
+              <th>Category</th>
+              <th>Department</th>
+              <th>Location</th>
+              <th>Status</th>
+              <th>Condition</th>
+              <th>Purchase Date</th>
+              <th>Purchase Cost</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for asset in inventory_assets %}
+              <tr>
+                <td class="cell-nowrap cell-emphasis">{{ asset.asset_id }}</td>
+                <td>{{ asset.name }}</td>
+                <td>{{ asset.category.name }}</td>
+                <td>{{ asset.current_location.department.name }}</td>
+                <td>{{ asset.current_location.short_label }}</td>
+                <td class="status-pill cell-nowrap">{{ asset.get_status_display }}</td>
+                <td class="cell-nowrap">{{ asset.get_condition_display }}</td>
+                <td class="cell-nowrap">{{ asset.purchase_date }}</td>
+                <td class="cell-nowrap">{{ asset.purchase_cost }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <div class="empty-state">
+          <h3>No assets found</h3>
+          <p>The current report query did not return any assets.</p>
+        </div>
+      {% endif %}
+    {% elif print_section == "dashboard-summary" %}
+      <div class="summary-grid">
+        <div class="summary-card"><strong>{{ report_summary.total_assets }}</strong><span>Total Assets</span></div>
+        <div class="summary-card"><strong>{{ report_summary.available_assets }}</strong><span>Available</span></div>
+        <div class="summary-card"><strong>{{ report_summary.allocated_assets }}</strong><span>Allocated</span></div>
+        <div class="summary-card"><strong>{{ report_summary.maintenance_assets }}</strong><span>Under Maintenance</span></div>
+        <div class="summary-card"><strong>{{ report_summary.disposed_assets }}</strong><span>Disposed</span></div>
+        <div class="summary-card"><strong>{{ report_summary.active_allocations }}</strong><span>Active Allocations</span></div>
+        <div class="summary-card"><strong>{{ report_summary.returned_allocations }}</strong><span>Returned Records</span></div>
+      </div>
+    {% elif print_section == "assets-by-department" %}
+      {% if assets_by_department %}
+        <table class="report-table">
+          <colgroup>
+            <col class="col-xwide">
+            <col class="col-small">
+            <col class="col-small">
+          </colgroup>
+          <thead>
+            <tr>
+              <th>Department</th>
+              <th>Code</th>
+              <th>Total Assets</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in assets_by_department %}
+              <tr>
+                <td>{{ row.current_location__department__name }}</td>
+                <td class="cell-nowrap">{{ row.current_location__department__code }}</td>
+                <td class="cell-nowrap">{{ row.total_assets }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <div class="empty-state">
+          <h3>No department report data</h3>
+          <p>No department asset totals are available yet.</p>
+        </div>
+      {% endif %}
+    {% elif print_section == "assigned-assets" %}
+      {% if assigned_assets_report %}
+        <table class="report-table">
+          <colgroup>
+            <col class="col-wide">
+            <col class="col-medium">
+            <col class="col-medium">
+            <col class="col-medium">
+            <col class="col-tight">
+            <col class="col-small">
+            <col class="col-small">
+            <col class="col-wide">
+          </colgroup>
+          <thead>
+            <tr>
+              <th>Asset</th>
+              <th>Assigned To</th>
+              <th>Allocation Type</th>
+              <th>Issued By</th>
+              <th>Status</th>
+              <th>Issue Date</th>
+              <th>Return Date</th>
+              <th>Purpose</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for allocation in assigned_assets_report %}
+              <tr>
+                <td class="cell-emphasis">{{ allocation.asset.asset_id }} - {{ allocation.asset.name }}</td>
+                <td>{% if allocation.allocated_to %}{{ allocation.allocated_to.username }}{% else %}{{ allocation.allocated_to_lab }}{% endif %}</td>
+                <td>{{ allocation.get_allocation_type_display }}</td>
+                <td>{{ allocation.allocated_by.username }}</td>
+                <td class="status-pill cell-nowrap">{{ allocation.get_status_display }}</td>
+                <td class="cell-nowrap">{{ allocation.allocation_date }}</td>
+                <td class="cell-nowrap">{{ allocation.expected_return_date }}</td>
+                <td>{{ allocation.purpose|default:"-" }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <div class="empty-state">
+          <h3>No assigned assets</h3>
+          <p>There are no active or overdue allocations to report.</p>
+        </div>
+      {% endif %}
+    {% elif print_section == "returned-assets" %}
+      {% if returned_assets_report %}
+        <table class="report-table">
+          <colgroup>
+            <col class="col-wide">
+            <col class="col-medium">
+            <col class="col-medium">
+            <col class="col-medium">
+            <col class="col-small">
+            <col class="col-small">
+            <col class="col-small">
+            <col class="col-tight">
+            <col class="col-tight">
+            <col class="col-medium">
+          </colgroup>
+          <thead>
+            <tr>
+              <th>Asset</th>
+              <th>Returned From</th>
+              <th>Allocation Type</th>
+              <th>Issued By</th>
+              <th>Issue Date</th>
+              <th>Expected Return</th>
+              <th>Actual Return</th>
+              <th>Condition Out</th>
+              <th>Condition In</th>
+              <th>Purpose</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for allocation in returned_assets_report %}
+              <tr>
+                <td class="cell-emphasis">{{ allocation.asset.asset_id }} - {{ allocation.asset.name }}</td>
+                <td>{% if allocation.allocated_to %}{{ allocation.allocated_to.get_full_name|default:allocation.allocated_to.username }}{% else %}{{ allocation.allocated_to_lab }}{% endif %}</td>
+                <td>{{ allocation.get_allocation_type_display }}</td>
+                <td>{{ allocation.allocated_by.username }}</td>
+                <td class="cell-nowrap">{{ allocation.allocation_date }}</td>
+                <td class="cell-nowrap">{{ allocation.expected_return_date|default:"-" }}</td>
+                <td class="cell-nowrap">{{ allocation.actual_return_date|default:"-" }}</td>
+                <td class="cell-nowrap">{{ allocation.get_condition_out_display|default:"-" }}</td>
+                <td class="cell-nowrap">{{ allocation.get_condition_in_display|default:"-" }}</td>
+                <td>{{ allocation.purpose|default:"-" }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <div class="empty-state">
+          <h3>No returned assets</h3>
+          <p>No completed return records are available yet.</p>
+        </div>
+      {% endif %}
+    {% elif print_section == "maintenance-history" %}
+      {% if maintenance_report %}
+        <table class="report-table">
+          <colgroup>
+            <col class="col-wide">
+            <col class="col-small">
+            <col class="col-tight">
+            <col class="col-small">
+            <col class="col-small">
+            <col class="col-medium">
+            <col class="col-medium">
+            <col class="col-wide">
+            <col class="col-small">
+            <col class="col-wide">
+          </colgroup>
+          <thead>
+            <tr>
+              <th>Asset</th>
+              <th>Type</th>
+              <th>Status</th>
+              <th>Scheduled</th>
+              <th>Completed</th>
+              <th>Technician</th>
+              <th>Reported By</th>
+              <th>Description</th>
+              <th>Cost</th>
+              <th>Resolution</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in maintenance_report %}
+              <tr>
+                <td class="cell-emphasis">{{ item.asset.asset_id }} - {{ item.asset.name }}</td>
+                <td>{{ item.get_maintenance_type_display }}</td>
+                <td class="status-pill cell-nowrap">{{ item.get_status_display }}</td>
+                <td class="cell-nowrap">{{ item.scheduled_date }}</td>
+                <td class="cell-nowrap">{{ item.completed_date|default:"-" }}</td>
+                <td>{{ item.technician|default:"Not assigned" }}</td>
+                <td>{{ item.reported_by|default:"-" }}</td>
+                <td>{{ item.description }}</td>
+                <td class="cell-nowrap">{{ item.cost|default:"0.00" }}</td>
+                <td>{% if item.resolution_notes %}{{ item.resolution_notes }}{% elif item.parts_replaced %}Parts replaced: {{ item.parts_replaced }}{% else %}-{% endif %}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <div class="empty-state">
+          <h3>No maintenance history</h3>
+          <p>No maintenance records are available yet.</p>
+        </div>
+      {% endif %}
+    {% elif print_section == "asset-movements" %}
+      {% if movement_report %}
+        <table class="report-table">
+          <colgroup>
+            <col class="col-wide">
+            <col class="col-wide">
+            <col class="col-wide">
+            <col class="col-medium">
+            <col class="col-small">
+            <col class="col-wide">
+          </colgroup>
+          <thead>
+            <tr>
+              <th>Asset</th>
+              <th>From</th>
+              <th>To</th>
+              <th>Moved By</th>
+              <th>Moved At</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in movement_report %}
+              <tr>
+                <td class="cell-emphasis">{{ item.asset.asset_id }} - {{ item.asset.name }}</td>
+                <td>{{ item.from_location }}</td>
+                <td>{{ item.to_location }}</td>
+                <td>{{ item.moved_by.username }}</td>
+                <td class="cell-nowrap">{{ item.moved_at|date:"M d, Y H:i" }}</td>
+                <td>{{ item.notes|default:"-" }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <div class="empty-state">
+          <h3>No movement history</h3>
+          <p>No asset movement records are available yet.</p>
+        </div>
+      {% endif %}
+    {% elif print_section == "depreciation-summary" %}
+      {% if depreciation_records %}
+        <table class="report-table">
+          <colgroup>
+            <col class="col-wide">
+            <col class="col-medium">
+            <col class="col-wide">
+            <col class="col-tight">
+            <col class="col-small">
+            <col class="col-small">
+            <col class="col-small">
+          </colgroup>
+          <thead>
+            <tr>
+              <th>Asset</th>
+              <th>Department</th>
+              <th>Location</th>
+              <th>Year</th>
+              <th>Depreciation</th>
+              <th>Accumulated</th>
+              <th>Net Book Value</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for record in depreciation_records %}
+              <tr>
+                <td class="cell-emphasis">{{ record.asset.asset_id }} - {{ record.asset.name }}</td>
+                <td>{{ record.asset.current_location.department.name }}</td>
+                <td>{{ record.asset.current_location.short_label }}</td>
+                <td class="cell-nowrap">{{ record.year }}</td>
+                <td class="cell-nowrap">{{ record.depreciation_amount }}</td>
+                <td class="cell-nowrap">{{ record.accumulated_depreciation }}</td>
+                <td class="cell-nowrap">{{ record.net_book_value }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <div class="empty-state">
+          <h3>No depreciation records</h3>
+          <p>No depreciation entries are available yet.</p>
+        </div>
+      {% endif %}
+    {% elif print_section == "request-report" %}
+      {% if asset_requests_report %}
+        <table class="report-table">
+          <colgroup>
+            <col class="col-wide">
+            <col class="col-medium">
+            <col class="col-tight">
+            <col class="col-small">
+            <col class="col-wide">
+            <col class="col-medium">
+            <col class="col-medium">
+            <col class="col-small">
+            <col class="col-medium">
+            <col class="col-medium">
+            <col class="col-wide">
+            <col class="col-wide">
+          </colgroup>
+          <thead>
+            <tr>
+              <th>Asset</th>
+              <th>Requested By</th>
+              <th>Status</th>
+              <th>Requested At</th>
+              <th>Use Window</th>
+              <th>Location</th>
+              <th>Reviewed By</th>
+              <th>Decision Date</th>
+              <th>Issuer Details</th>
+              <th>Handover Place</th>
+              <th>Reason</th>
+              <th>Decision Note</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in asset_requests_report %}
+              <tr>
+                <td class="cell-emphasis">{{ item.asset.asset_id }} - {{ item.asset.name }}</td>
+                <td>{{ item.requested_by.username }}</td>
+                <td class="status-pill cell-nowrap">{{ item.get_status_display }}</td>
+                <td class="cell-nowrap">{{ item.requested_at|date:"M d, Y H:i" }}</td>
+                <td>{% if item.requested_start_at and item.requested_end_at %}{{ item.requested_start_at|date:"M d, Y H:i" }} to {{ item.requested_end_at|date:"M d, Y H:i" }}{% else %}-{% endif %}</td>
+                <td>{{ item.usage_location|default:"-" }}</td>
+                <td>{{ item.reviewed_by|default:"-" }}</td>
+                <td class="cell-nowrap">{{ item.reviewed_at|date:"M d, Y H:i"|default:"-" }}</td>
+                <td>{{ item.issue_person_details|default:"-" }}</td>
+                <td>{{ item.handover_location|default:"-" }}</td>
+                <td>{{ item.message|default:"-" }}</td>
+                <td>{{ item.decline_reason|default:"-" }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <div class="empty-state">
+          <h3>No request records</h3>
+          <p>No asset request data is available yet.</p>
+        </div>
+      {% endif %}
+    {% endif %}
+
+    <div class="approval-block">
+      <p class="approval-note">System-generated report prepared for review and approval.</p>
+      <div class="signature-grid">
+        <div class="signature-card">
+          <span>Reviewed By</span>
+          <div class="signature-line"></div>
+          <strong>Name, signature, and date</strong>
+        </div>
+        <div class="signature-card">
+          <span>Approved By</span>
+          <div class="signature-line"></div>
+          <strong>Name, signature, and date</strong>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    window.addEventListener('load', () => {
+      window.print();
+    });
+  </script>
+</body>
+</html>

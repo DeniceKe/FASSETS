@@ -1,0 +1,1407 @@
+{% extends "base.html" %}
+{% block title %}Reports Center | FASSETS{% endblock %}
+
+{% block content %}
+<style>
+  .reports-center-toolbar {
+    align-items: flex-start;
+  }
+
+  .reports-center-page-actions {
+    display: grid;
+    gap: 10px;
+    justify-items: end;
+  }
+
+  .reports-center-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 1rem;
+  }
+
+  .reports-filter-card {
+    display: grid;
+    gap: 14px;
+    margin-top: 1rem;
+    padding: 16px;
+    border-radius: 22px;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    background: rgba(255, 255, 255, 0.78);
+  }
+
+  .reports-filter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+  }
+
+  .reports-filter-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .reports-filter-hint {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.92rem;
+  }
+
+  .reports-center-nav-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 9px 14px;
+    border-radius: 999px;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    background: rgba(255, 255, 255, 0.86);
+    color: var(--ink);
+    font-weight: 600;
+    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  }
+
+  .reports-center-nav-link:hover,
+  .reports-center-nav-link:focus-visible {
+    background: rgba(29, 78, 216, 0.08);
+    border-color: rgba(29, 78, 216, 0.24);
+    color: var(--brand-deep);
+    outline: none;
+  }
+
+  .reports-center-nav-link.is-active {
+    background: linear-gradient(135deg, var(--brand), var(--brand-deep));
+    border-color: transparent;
+    color: #fff;
+    box-shadow: 0 10px 22px rgba(29, 78, 216, 0.2);
+  }
+
+  .reports-center-section.is-hidden {
+    display: none;
+  }
+
+  .report-metadata-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin-top: 1rem;
+  }
+
+  .report-metadata-card {
+    display: grid;
+    gap: 4px;
+    padding: 12px 14px;
+    border-radius: 18px;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    background: rgba(255, 255, 255, 0.86);
+  }
+
+  .report-metadata-card span {
+    color: var(--muted);
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .report-metadata-card strong {
+    font-size: 0.95rem;
+  }
+
+  .report-section-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 1rem;
+  }
+
+  .report-section-head h2,
+  .report-section-head h3,
+  .report-section-head p {
+    margin-bottom: 0;
+  }
+
+  .report-section-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .report-print-banner {
+    display: none;
+  }
+
+  .report-print-banner p,
+  .report-print-banner h3 {
+    margin: 0;
+  }
+
+  .report-print-banner-meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 8px;
+  }
+
+  .report-print-system {
+    display: block;
+    color: #14532d;
+    font-size: 1.02rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+
+  .report-approval-block {
+    display: none;
+  }
+
+  .report-data-table {
+    table-layout: auto;
+  }
+
+  .report-data-table.report-data-table-inventory {
+    table-layout: fixed;
+    width: 100%;
+  }
+
+  .report-data-table.report-data-table-inventory th,
+  .report-data-table.report-data-table-inventory td {
+    word-break: normal;
+    overflow-wrap: break-word;
+  }
+
+  .report-print-table-wrap {
+    display: none;
+  }
+
+  .report-print-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+
+  @media print {
+    @page {
+      size: A4 landscape;
+      margin: 6mm;
+    }
+
+    body {
+      background: #fff;
+      color: #111;
+      font-family: "Times New Roman", Georgia, serif;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .topbar,
+    .message-stack,
+    .reports-center-toolbar,
+    .report-metadata-grid,
+    .reports-center-nav,
+    .reports-center-page-actions,
+    .report-print-button,
+    .reports-filter-card {
+      display: none !important;
+    }
+
+    .shell {
+      width: 100%;
+      margin: 0;
+      padding: 0;
+    }
+
+    .page-card,
+    .section {
+      background: #fff !important;
+      border: 0 !important;
+      box-shadow: none !important;
+      margin: 0 !important;
+      overflow: visible !important;
+      position: static !important;
+      padding: 0 !important;
+    }
+
+    .page-card::before {
+      content: none !important;
+      display: none !important;
+    }
+
+    .report-section-head {
+      margin-bottom: 6px;
+    }
+
+    .report-metadata-card,
+    .chip,
+    .status {
+      background: #fff !important;
+      color: #111 !important;
+      border: 1px solid #666 !important;
+      box-shadow: none !important;
+      border-radius: 0 !important;
+    }
+
+    .report-print-banner {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 8px;
+      padding-bottom: 6px;
+      border-bottom: 2px solid #111;
+    }
+
+    .report-print-banner-meta {
+      font-size: 10pt;
+    }
+
+    .report-section-head .eyebrow,
+    .report-section-head p,
+    .report-section-actions {
+      display: none !important;
+    }
+
+    .report-data-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: auto !important;
+      font-size: 8pt;
+      color: #111 !important;
+      background: #fff !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+      overflow: visible !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      page-break-inside: auto !important;
+    }
+
+    .report-data-table thead {
+      display: table-header-group;
+      visibility: visible !important;
+    }
+
+    .report-data-table tbody {
+      visibility: visible !important;
+    }
+
+    .report-data-table tr {
+      visibility: visible !important;
+      vertical-align: top;
+      page-break-inside: auto !important;
+      break-inside: auto !important;
+      height: auto !important;
+    }
+
+    .report-data-table col {
+      width: auto !important;
+    }
+
+    .report-data-table td,
+    .report-data-table th {
+      vertical-align: top;
+      color: #111 !important;
+      background: #fff !important;
+      -webkit-text-fill-color: #111 !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+      line-height: 1.25 !important;
+      white-space: normal !important;
+      overflow: visible !important;
+      word-break: normal !important;
+      overflow-wrap: break-word !important;
+      hyphens: none !important;
+      height: auto !important;
+      clip-path: none !important;
+      transform: none !important;
+    }
+
+    .report-data-table th,
+    .report-data-table td {
+      padding: 4px 6px;
+      border: 1px solid #c9d6e2;
+      font-size: 8pt;
+    }
+
+    .report-data-table thead th {
+      background: #dbe9f5 !important;
+      color: #315f86 !important;
+      -webkit-text-fill-color: #315f86 !important;
+      border-color: #bfd3e5 !important;
+      border-bottom: 2px solid #7fa6c2 !important;
+      letter-spacing: 0.02em !important;
+      font-size: 7.8pt !important;
+      font-weight: 700 !important;
+    }
+
+    .report-data-table tbody tr:nth-child(even) td {
+      background: #f7fbfe !important;
+    }
+
+    .report-data-table.report-data-table-inventory {
+      table-layout: auto !important;
+    }
+
+    .report-data-table.report-data-table-inventory td:first-child,
+    .report-data-table.report-data-table-inventory td:nth-child(2) {
+      font-weight: 600;
+    }
+
+    .report-data-table.report-data-table-inventory td:first-child,
+    .report-data-table.report-data-table-inventory td:nth-child(6),
+    .report-data-table.report-data-table-inventory td:nth-child(7),
+    .report-data-table.report-data-table-inventory td:nth-child(8),
+    .report-data-table.report-data-table-inventory td:nth-child(9) {
+      white-space: nowrap !important;
+      word-break: normal !important;
+      overflow-wrap: normal !important;
+    }
+
+    .report-data-table.report-data-table-inventory {
+      display: none !important;
+    }
+
+    .report-print-table-wrap {
+      display: block !important;
+      margin-top: 4px;
+    }
+
+    .report-print-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed !important;
+      font-size: 8pt;
+      color: #111 !important;
+      background: #fff !important;
+    }
+
+    .report-print-table thead {
+      display: table-header-group;
+      visibility: visible !important;
+    }
+
+    .report-print-table tr {
+      page-break-inside: auto !important;
+      break-inside: auto !important;
+      visibility: visible !important;
+    }
+
+    .report-print-table th,
+    .report-print-table td {
+      padding: 4px 6px;
+      border: 1px solid #c9d6e2;
+      vertical-align: top;
+      color: #111 !important;
+      background: #fff !important;
+      -webkit-text-fill-color: #111 !important;
+      white-space: normal !important;
+      word-break: normal !important;
+      overflow-wrap: break-word !important;
+      line-height: 1.25 !important;
+    }
+
+    .report-print-table thead th {
+      background: #dbe9f5 !important;
+      color: #315f86 !important;
+      -webkit-text-fill-color: #315f86 !important;
+      border-color: #bfd3e5 !important;
+      border-bottom: 2px solid #7fa6c2 !important;
+      letter-spacing: 0.02em !important;
+      font-size: 7.8pt !important;
+      font-weight: 700 !important;
+    }
+
+    .report-print-table tbody tr:nth-child(even) td {
+      background: #f7fbfe !important;
+    }
+
+    .report-print-table td:first-child,
+    .report-print-table td:nth-child(6),
+    .report-print-table td:nth-child(7),
+    .report-print-table td:nth-child(8),
+    .report-print-table td:nth-child(9) {
+      white-space: nowrap !important;
+      overflow-wrap: normal !important;
+    }
+
+    .report-approval-block {
+      display: grid !important;
+      gap: 8px;
+      margin-top: 10px;
+      padding-top: 8px;
+      border-top: 2px solid #14532d;
+      color: #111 !important;
+    }
+
+    .report-approval-note {
+      margin: 0;
+      color: #14532d !important;
+      font-size: 8.4pt !important;
+      font-style: italic;
+    }
+
+    .report-signature-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .report-signature-card {
+      display: grid;
+      gap: 4px;
+    }
+
+    .report-signature-card span {
+      font-size: 8.1pt;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: #166534 !important;
+    }
+
+    .report-signature-line {
+      height: 18px;
+      border-bottom: 1px solid #14532d;
+    }
+
+    .report-signature-card strong {
+      font-size: 8.2pt;
+      font-weight: 500;
+      color: #111 !important;
+    }
+
+    .report-data-table .status {
+      display: inline !important;
+      padding: 0 !important;
+      border: 0 !important;
+      background: transparent !important;
+      box-shadow: none !important;
+      color: #111 !important;
+      -webkit-text-fill-color: #111 !important;
+    }
+
+    .empty-state {
+      display: block !important;
+      padding: 10px 12px;
+      border: 1px solid #666;
+      color: #111 !important;
+      background: #fff !important;
+    }
+
+    .reports-center-section {
+      page-break-inside: auto;
+      break-inside: auto;
+      page-break-after: auto;
+      break-after: auto;
+    }
+
+    .reports-center-section.is-hidden {
+      display: none !important;
+    }
+  }
+</style>
+<section class="page-card">
+  <div class="section">
+    <div class="toolbar reports-center-toolbar">
+      <div>
+        <p class="eyebrow">Reports Center</p>
+        <h1>Generated Report</h1>
+      </div>
+      <div class="reports-center-page-actions">
+        <div class="inline-meta">
+          <a class="button-link secondary" href="{% url 'assets:dashboard' %}#reports">Back To Dashboard</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="report-metadata-grid">
+      <div class="report-metadata-card">
+        <span>Generated By</span>
+        <strong>{{ report_generated_by }}</strong>
+      </div>
+      <div class="report-metadata-card">
+        <span>Generated On</span>
+        <strong>{{ report_generated_at|date:"M d, Y H:i" }}</strong>
+      </div>
+      <div class="report-metadata-card">
+        <span>Active Filters</span>
+        <strong>{{ report_active_filters_text }}</strong>
+      </div>
+    </div>
+
+    <form method="get" class="reports-filter-card">
+      <div>
+        <p class="eyebrow">Report Query Filters</p>
+        <h3>Generate reports by date, maintenance status, asset status, and condition</h3>
+        <p>Use one filter set to narrow the report tables below before printing or saving the report.</p>
+        <p class="reports-filter-hint" data-availability-filter-note {% if not ignore_related_activity_status_filters %}hidden{% endif %}>
+          {{ report_filter_notice|default:"Available assets ignore request and maintenance status filters." }}
+        </p>
+      </div>
+
+      <div class="reports-filter-grid">
+        <div class="form-field">
+          <label for="report-date-from">Date From</label>
+          <input id="report-date-from" type="date" name="date_from" value="{{ date_from }}">
+        </div>
+        <div class="form-field">
+          <label for="report-date-to">Date To</label>
+          <input id="report-date-to" type="date" name="date_to" value="{{ date_to }}">
+        </div>
+        <div class="form-field">
+          <label for="report-asset-status">Asset Status</label>
+          <select id="report-asset-status" name="inventory_status" data-asset-status-filter>
+            <option value="">All asset status</option>
+            {% for option in asset_status_options %}
+              <option value="{{ option.value }}" {% if inventory_status == option.value %}selected{% endif %}>{{ option.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-field">
+          <label for="report-asset-condition">Asset Condition</label>
+          <select id="report-asset-condition" name="asset_condition">
+            <option value="">All asset conditions</option>
+            {% for option in asset_condition_options %}
+              <option value="{{ option.value }}" {% if asset_condition == option.value %}selected{% endif %}>{{ option.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-field">
+          <label for="report-asset-category">Asset Category</label>
+          <select id="report-asset-category" name="asset_category">
+            <option value="">All asset categories</option>
+            {% for category in categories %}
+              <option value="{{ category.id }}" {% if inventory_category|stringformat:"s" == category.id|stringformat:"s" %}selected{% endif %}>{{ category.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-field">
+          <label for="report-request-status">Request Status</label>
+          <select id="report-request-status" name="request_status" data-dependent-status-filter>
+            <option value="">All request status</option>
+            {% for option in request_status_options %}
+              <option value="{{ option.value }}" {% if request_status == option.value %}selected{% endif %}>{{ option.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-field">
+          <label for="report-maintenance-status">Maintenance Status</label>
+          <select id="report-maintenance-status" name="maintenance_status" data-dependent-status-filter>
+            <option value="">All maintenance status</option>
+            {% for option in maintenance_status_options %}
+              <option value="{{ option.value }}" {% if maintenance_status == option.value %}selected{% endif %}>{{ option.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="reports-filter-actions">
+        <button type="submit">Generate Report</button>
+        <button type="button" class="button-link report-print-button" data-report-print-button>Print Current Report</button>
+        <a class="button-link secondary" href="{% url 'assets:reports_center' %}">Clear Filters</a>
+      </div>
+    </form>
+
+    <div class="reports-center-nav" aria-label="Reports navigation">
+      <a class="reports-center-nav-link is-active" href="#inventory-report" data-report-target="inventory-report">Inventory Report</a>
+      <a class="reports-center-nav-link" href="#dashboard-summary" data-report-target="dashboard-summary">Dashboard Summary</a>
+      <a class="reports-center-nav-link" href="#assets-by-department" data-report-target="assets-by-department">Assets By Department</a>
+      <a class="reports-center-nav-link" href="#assigned-assets" data-report-target="assigned-assets">Assigned Assets</a>
+      <a class="reports-center-nav-link" href="#returned-assets" data-report-target="returned-assets">Returned Assets</a>
+      <a class="reports-center-nav-link" href="#maintenance-history" data-report-target="maintenance-history">Maintenance History</a>
+      <a class="reports-center-nav-link" href="#asset-movements" data-report-target="asset-movements">Asset Movements</a>
+      <a class="reports-center-nav-link" href="#depreciation-summary" data-report-target="depreciation-summary">Depreciation Summary</a>
+      <a class="reports-center-nav-link" href="#request-report" data-report-target="request-report">Request Report</a>
+    </div>
+  </div>
+
+  <div class="section reports-center-section" id="inventory-report" data-report-section="inventory-report">
+    <div class="report-print-banner">
+      <p class="eyebrow">FASSETS Official Report Copy</p>
+      <strong class="report-print-system">Fixed Assets Management System</strong>
+      <h3>Inventory Report</h3>
+      <div class="report-print-banner-meta">
+        <span>Generated By: {{ report_generated_by }}</span>
+        <span>Generated On: {{ report_generated_at|date:"M d, Y H:i" }}</span>
+        <span>Active Filters: {{ report_active_filters_text }}</span>
+      </div>
+    </div>
+    <div class="report-section-head">
+      <div>
+        <p class="eyebrow">Inventory Report</p>
+        <h2>Assets matching the current query</h2>
+        <p>Printable inventory report showing each asset returned by the selected filters.</p>
+      </div>
+      <div class="report-section-actions">
+        <span class="chip">{{ inventory_assets|length }} asset{{ inventory_assets|length|pluralize }}</span>
+      </div>
+    </div>
+    {% if inventory_assets %}
+      <table class="report-data-table report-data-table-inventory">
+        <colgroup>
+          <col style="width: 11%;">
+          <col style="width: 16%;">
+          <col style="width: 10%;">
+          <col style="width: 12%;">
+          <col style="width: 18%;">
+          <col style="width: 8%;">
+          <col style="width: 8%;">
+          <col style="width: 9%;">
+          <col style="width: 8%;">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Asset ID</th>
+            <th>Name</th>
+            <th>Category</th>
+            <th>Department</th>
+            <th>Location</th>
+            <th>Status</th>
+            <th>Condition</th>
+            <th>Purchase Date</th>
+            <th>Purchase Cost</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for asset in inventory_assets %}
+            <tr>
+              <td>{{ asset.asset_id }}</td>
+              <td>{{ asset.name }}</td>
+              <td>{{ asset.category.name }}</td>
+              <td>{{ asset.current_location.department.name }}</td>
+              <td>{{ asset.current_location.short_label }}</td>
+              <td><span class="status {{ asset.status }}">{{ asset.get_status_display }}</span></td>
+              <td>{{ asset.get_condition_display }}</td>
+              <td>{{ asset.purchase_date }}</td>
+              <td>{{ asset.purchase_cost }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <div class="report-print-table-wrap">
+        <table class="report-print-table">
+          <colgroup>
+            <col style="width: 11%;">
+            <col style="width: 16%;">
+            <col style="width: 10%;">
+            <col style="width: 12%;">
+            <col style="width: 18%;">
+            <col style="width: 8%;">
+            <col style="width: 8%;">
+            <col style="width: 9%;">
+            <col style="width: 8%;">
+          </colgroup>
+          <thead>
+            <tr>
+              <th>Asset ID</th>
+              <th>Name</th>
+              <th>Category</th>
+              <th>Department</th>
+              <th>Location</th>
+              <th>Status</th>
+              <th>Condition</th>
+              <th>Purchase Date</th>
+              <th>Purchase Cost</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for asset in inventory_assets %}
+              <tr>
+                <td>{{ asset.asset_id }}</td>
+                <td>{{ asset.name }}</td>
+                <td>{{ asset.category.name }}</td>
+                <td>{{ asset.current_location.department.name }}</td>
+                <td>{{ asset.current_location.short_label }}</td>
+                <td>{{ asset.get_status_display }}</td>
+                <td>{{ asset.get_condition_display }}</td>
+                <td>{{ asset.purchase_date }}</td>
+                <td>{{ asset.purchase_cost }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty-state">
+        <h3>No assets found</h3>
+        <p>The current report query did not return any assets.</p>
+      </div>
+    {% endif %}
+    <div class="report-approval-block">
+      <p class="report-approval-note">System-generated report prepared for review and approval.</p>
+      <div class="report-signature-grid">
+        <div class="report-signature-card">
+          <span>Reviewed By</span>
+          <div class="report-signature-line"></div>
+          <strong>Name, signature, and date</strong>
+        </div>
+        <div class="report-signature-card">
+          <span>Approved By</span>
+          <div class="report-signature-line"></div>
+          <strong>Name, signature, and date</strong>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section reports-center-section is-hidden" id="dashboard-summary" data-report-section="dashboard-summary">
+    <div class="report-print-banner">
+      <p class="eyebrow">FASSETS Official Report Copy</p>
+      <strong class="report-print-system">Fixed Assets Management System</strong>
+      <h3>Dashboard Summary</h3>
+      <div class="report-print-banner-meta">
+        <span>Generated By: {{ report_generated_by }}</span>
+        <span>Generated On: {{ report_generated_at|date:"M d, Y H:i" }}</span>
+        <span>Active Filters: {{ report_active_filters_text }}</span>
+      </div>
+    </div>
+    <div class="report-section-head">
+      <div>
+        <p class="eyebrow">Dashboard Summary</p>
+        <h2>Overall asset posture</h2>
+        <p>Printable summary of current asset availability, allocation load, maintenance exposure, and completed returns.</p>
+      </div>
+      <div class="report-section-actions">
+        <span class="chip">7 summary metrics</span>
+      </div>
+    </div>
+    <div class="grid metrics">
+      <div class="metric-card">
+        <strong>{{ report_summary.total_assets }}</strong>
+        <span>Total Assets</span>
+      </div>
+      <div class="metric-card">
+        <strong>{{ report_summary.available_assets }}</strong>
+        <span>Available</span>
+      </div>
+      <div class="metric-card">
+        <strong>{{ report_summary.allocated_assets }}</strong>
+        <span>Allocated</span>
+      </div>
+      <div class="metric-card">
+        <strong>{{ report_summary.maintenance_assets }}</strong>
+        <span>Under Maintenance</span>
+      </div>
+      <div class="metric-card">
+        <strong>{{ report_summary.disposed_assets }}</strong>
+        <span>Disposed</span>
+      </div>
+      <div class="metric-card">
+        <strong>{{ report_summary.active_allocations }}</strong>
+        <span>Active Allocations</span>
+      </div>
+      <div class="metric-card">
+        <strong>{{ report_summary.returned_allocations }}</strong>
+        <span>Returned Records</span>
+      </div>
+    </div>
+    <div class="report-approval-block">
+      <p class="report-approval-note">System-generated report prepared for review and approval.</p>
+      <div class="report-signature-grid">
+        <div class="report-signature-card">
+          <span>Reviewed By</span>
+          <div class="report-signature-line"></div>
+          <strong>Name, signature, and date</strong>
+        </div>
+        <div class="report-signature-card">
+          <span>Approved By</span>
+          <div class="report-signature-line"></div>
+          <strong>Name, signature, and date</strong>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section reports-center-section is-hidden" id="assets-by-department" data-report-section="assets-by-department">
+    <div class="report-print-banner">
+      <p class="eyebrow">FASSETS Official Report Copy</p>
+      <strong class="report-print-system">Fixed Assets Management System</strong>
+      <h3>Assets By Department</h3>
+      <div class="report-print-banner-meta">
+        <span>Generated By: {{ report_generated_by }}</span>
+        <span>Generated On: {{ report_generated_at|date:"M d, Y H:i" }}</span>
+        <span>Active Filters: {{ report_active_filters_text }}</span>
+      </div>
+    </div>
+    <div class="report-section-head">
+      <div>
+        <p class="eyebrow">Assets By Department</p>
+        <h2>Department distribution</h2>
+        <p>Printable distribution report showing asset ownership volume by department code and department name.</p>
+      </div>
+      <div class="report-section-actions">
+        <span class="chip">{{ assets_by_department|length }} department{{ assets_by_department|length|pluralize }}</span>
+      </div>
+    </div>
+    {% if assets_by_department %}
+      <table class="report-data-table">
+        <thead>
+          <tr>
+            <th>Department</th>
+            <th>Code</th>
+            <th>Total Assets</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in assets_by_department %}
+            <tr>
+              <td>{{ row.current_location__department__name }}</td>
+              <td>{{ row.current_location__department__code }}</td>
+              <td>{{ row.total_assets }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="empty-state">
+        <h3>No department report data</h3>
+        <p>No department asset totals are available yet.</p>
+      </div>
+    {% endif %}
+    <div class="report-approval-block">
+      <p class="report-approval-note">System-generated report prepared for review and approval.</p>
+      <div class="report-signature-grid">
+        <div class="report-signature-card">
+          <span>Reviewed By</span>
+          <div class="report-signature-line"></div>
+          <strong>Name, signature, and date</strong>
+        </div>
+        <div class="report-signature-card">
+          <span>Approved By</span>
+          <div class="report-signature-line"></div>
+          <strong>Name, signature, and date</strong>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section reports-center-section is-hidden" id="assigned-assets" data-report-section="assigned-assets">
+    <div class="report-print-banner">
+      <p class="eyebrow">FASSETS Official Report Copy</p>
+      <strong class="report-print-system">Fixed Assets Management System</strong>
+      <h3>Assigned Assets</h3>
+      <div class="report-print-banner-meta">
+        <span>Generated By: {{ report_generated_by }}</span>
+        <span>Generated On: {{ report_generated_at|date:"M d, Y H:i" }}</span>
+        <span>Active Filters: {{ report_active_filters_text }}</span>
+      </div>
+    </div>
+    <div class="report-section-head">
+      <div>
+        <p class="eyebrow">Assigned Assets</p>
+        <h2>Currently issued assets</h2>
+        <p>Printable allocation report with recipients, allocation type, purpose, issue dates, and return expectations.</p>
+      </div>
+      <div class="report-section-actions">
+        <span class="chip">{{ assigned_assets_report|length }} allocation{{ assigned_assets_report|length|pluralize }}</span>
+      </div>
+    </div>
+    {% if assigned_assets_report %}
+      <table class="report-data-table">
+        <thead>
+          <tr>
+            <th>Asset</th>
+            <th>Assigned To</th>
+            <th>Allocation Type</th>
+            <th>Issued By</th>
+            <th>Status</th>
+            <th>Issue Date</th>
+            <th>Return Date</th>
+            <th>Purpose</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for allocation in assigned_assets_report %}
+            <tr>
+              <td>{{ allocation.asset.asset_id }} - {{ allocation.asset.name }}</td>
+              <td>{% if allocation.allocated_to %}{{ allocation.allocated_to.username }}{% else %}{{ allocation.allocated_to_lab }}{% endif %}</td>
+              <td>{{ allocation.get_allocation_type_display }}</td>
+              <td>{{ allocation.allocated_by.username }}</td>
+              <td><span class="status {{ allocation.status }}">{{ allocation.get_status_display }}</span></td>
+              <td>{{ allocation.allocation_date }}</td>
+              <td>{{ allocation.expected_return_date }}</td>
+              <td>{{ allocation.purpose|default:"-" }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="empty-state">
+        <h3>No assigned assets</h3>
+        <p>There are no active or overdue allocations to report.</p>
+      </div>
+    {% endif %}
+    <div class="report-approval-block">
+      <p class="report-approval-note">System-generated report prepared for review and approval.</p>
+      <div class="report-signature-grid">
+        <div class="report-signature-card">
+          <span>Reviewed By</span>
+          <div class="report-signature-line"></div>
+          <strong>Name, signature, and date</strong>
+        </div>
+        <div class="report-signature-card">
+          <span>Approved By</span>
+          <div class="report-signature-line"></div>
+          <strong>Name, signature, and date</strong>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section reports-center-section is-hidden" id="returned-assets" data-report-section="returned-assets">
+    <div class="report-print-banner">
+      <p class="eyebrow">FASSETS Official Report Copy</p>
+      <strong class="report-print-system">Fixed Assets Management System</strong>
+      <h3>Returned Assets</h3>
+      <div class="report-print-banner-meta">
+        <span>Generated By: {{ report_generated_by }}</span>
+        <span>Generated On: {{ report_generated_at|date:"M d, Y H:i" }}</span>
+        <span>Active Filters: {{ report_active_filters_text }}</span>
+      </div>
+    </div>
+    <div class="report-section-head">
+      <div>
+        <p class="eyebrow">Returned Assets</p>
+        <h2>Assets already checked back in</h2>
+        <p>Printable return history showing who held the asset, when it was issued and returned, and the recorded conditions.</p>
+      </div>
+      <div class="report-section-actions">
+        <span class="chip">{{ returned_assets_report|length }} return{{ returned_assets_report|length|pluralize }}</span>
+      </div>
+    </div>
+    {% if returned_assets_report %}
+      <table class="report-data-table">
+        <thead>
+          <tr>
+            <th>Asset</th>
+            <th>Returned From</th>
+            <th>Allocation Type</th>
+            <th>Issued By</th>
+            <th>Issue Date</th>
+            <th>Expected Return</th>
+            <th>Actual Return</th>
+            <th>Condition Out</th>
+            <th>Condition In</th>
+            <th>Purpose</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for allocation in returned_assets_report %}
+            <tr>
+              <td>{{ allocation.asset.asset_id }} - {{ allocation.asset.name }}</td>
+              <td>
+                {% if allocation.allocated_to %}
+                  {{ allocation.allocated_to.get_full_name|default:allocation.allocated_to.username }}
+                {% else %}
+                  {{ allocation.allocated_to_lab }}
+                {% endif %}
+              </td>
+              <td>{{ allocation.get_allocation_type_display }}</td>
+              <td>{{ allocation.allocated_by.username }}</td>
+              <td>{{ allocation.allocation_date }}</td>
+              <td>{{ allocation.expected_return_date|default:"-" }}</td>
+              <td>{{ allocation.actual_return_date|default:"-" }}</td>
+              <td>{{ allocation.get_condition_out_display|default:"-" }}</td>
+              <td>{{ allocation.get_condition_in_display|default:"-" }}</td>
+              <td>{{ allocation.purpose|default:"-" }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="empty-state">
+        <h3>No returned assets</h3>
+        <p>No completed return records are available yet.</p>
+      </div>
+    {% endif %}
+    <div class="report-approval-block">
+      <p class="report-approval-note">System-generated report prepared for review and approval.</p>
+      <div class="report-signature-grid">
+        <div class="report-signature-card">
+          <span>Reviewed By</span>
+          <div class="report-signature-line"></div>
+          <strong>Name, signature, and date</strong>
+        </div>
+        <div class="report-signature-card">
+          <span>Approved By</span>
+          <div class="report-signature-line"></div>
+          <strong>Name, signature, and date</strong>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section reports-center-section is-hidden" id="maintenance-history" data-report-section="maintenance-history">
+    <div class="report-print-banner">
+      <p class="eyebrow">FASSETS Official Report Copy</p>
+      <strong class="report-print-system">Fixed Assets Management System</strong>
+      <h3>Maintenance History</h3>
+      <div class="report-print-banner-meta">
+        <span>Generated By: {{ report_generated_by }}</span>
+        <span>Generated On: {{ report_generated_at|date:"M d, Y H:i" }}</span>
+        <span>Active Filters: {{ report_active_filters_text }}</span>
+      </div>
+    </div>
+    <div class="report-section-head">
+      <div>
+        <p class="eyebrow">Maintenance History</p>
+        <h2>Maintenance records</h2>
+        <p>Printable maintenance log covering schedule, completion, technician ownership, reported issue, cost, and repair outcome.</p>
+      </div>
+      <div class="report-section-actions">
+        <span class="chip">{{ maintenance_report|length }} maintenance record{{ maintenance_report|length|pluralize }}</span>
+      </div>
+    </div>
+    {% if maintenance_report %}
+      <table class="report-data-table">
+        <thead>
+          <tr>
+            <th>Asset</th>
+            <th>Type</th>
+            <th>Status</th>
+            <th>Scheduled</th>
+            <th>Completed</th>
+            <th>Technician</th>
+            <th>Reported By</th>
+            <th>Description</th>
+            <th>Cost</th>
+            <th>Resolution</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in maintenance_report %}
+            <tr>
+              <td>{{ item.asset.asset_id }} - {{ item.asset.name }}</td>
+              <td>{{ item.get_maintenance_type_display }}</td>
+              <td><span class="status {{ item.status }}">{{ item.get_status_display }}</span></td>
+              <td>{{ item.scheduled_date }}</td>
+              <td>{{ item.completed_date|default:"-" }}</td>
+              <td>{{ item.technician|default:"Not assigned" }}</td>
+              <td>{{ item.reported_by|default:"-" }}</td>
+              <td>{{ item.description }}</td>
+              <td>{{ item.cost|default:"0.00" }}</td>
+              <td>
+                {% if item.resolution_notes %}
+                  {{ item.resolution_notes }}
+                {% elif item.parts_replaced %}
+                  Parts replaced: {{ item.parts_replaced }}
+                {% else %}
+                  -
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="empty-state">
+        <h3>No maintenance history</h3>
+        <p>No maintenance records are available yet.</p>
+      </div>
+    {% endif %}
+    <div class="report-approval-block">
+      <p class="report-approval-note">System-generated report prepared for review and approval.</p>
+      <div class="report-signature-grid">
+        <div class="report-signature-card">
+          <span>Reviewed By</span>
+          <div class="report-signature-line"></div>
+          <strong>Name, signature, and date</strong>
+        </div>
+        <div class="report-signature-card">
+          <span>Approved By</span>
+          <div class="report-signature-line"></div>
+          <strong>Name, signature, and date</strong>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section reports-center-section is-hidden" id="asset-movements" data-report-section="asset-movements">
+    <div class="report-print-banner">
+      <p class="eyebrow">FASSETS Official Report Copy</p>
+      <strong class="report-print-system">Fixed Assets Management System</strong>
+      <h3>Asset Movements</h3>
+      <div class="report-print-banner-meta">
+        <span>Generated By: {{ report_generated_by }}</span>
+        <span>Generated On: {{ report_generated_at|date:"M d, Y H:i" }}</span>
+        <span>Active Filters: {{ report_active_filters_text }}</span>
+      </div>
+    </div>
+    <div class="report-section-head">
+      <div>
+        <p class="eyebrow">Asset Movements</p>
+        <h2>Location movement history</h2>
+        <p>Printable asset movement trail showing origin, destination, responsible actor, timestamp, and movement notes.</p>
+      </div>
+      <div class="report-section-actions">
+        <span class="chip">{{ movement_report|length }} movement{{ movement_report|length|pluralize }}</span>
+      </div>
+    </div>
+    {% if movement_report %}
+      <table class="report-data-table">
+        <thead>
+          <tr>
+            <th>Asset</th>
+            <th>From</th>
+            <th>To</th>
+            <th>Moved By</th>
+            <th>Moved At</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in movement_report %}
+            <tr>
+              <td>{{ item.asset.asset_id }} - {{ item.asset.name }}</td>
+              <td>{{ item.from_location }}</td>
+              <td>{{ item.to_location }}</td>
+              <td>{{ item.moved_by.username }}</td>
+              <td>{{ item.moved_at|date:"M d, Y H:i" }}</td>
+              <td>{{ item.notes|default:"-" }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="empty-state">
+        <h3>No movement history</h3>
+        <p>No asset movement records are available yet.</p>
+      </div>
+    {% endif %}
+    <div class="report-approval-block">
+      <p class="report-approval-note">System-generated report prepared for review and approval.</p>
+      <div class="report-signature-grid">
+        <div class="report-signature-card">
+          <span>Reviewed By</span>
+          <div class="report-signature-line"></div>
+          <strong>Name, signature, and date</strong>
+        </div>
+        <div class="report-signature-card">
+          <span>Approved By</span>
+          <div class="report-signature-line"></div>
+          <strong>Name, signature, and date</strong>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section reports-center-section is-hidden" id="depreciation-summary" data-report-section="depreciation-summary">
+    <div class="report-print-banner">
+      <p class="eyebrow">FASSETS Official Report Copy</p>
+      <strong class="report-print-system">Fixed Assets Management System</strong>
+      <h3>Depreciation Summary</h3>
+      <div class="report-print-banner-meta">
+        <span>Generated By: {{ report_generated_by }}</span>
+        <span>Generated On: {{ report_generated_at|date:"M d, Y H:i" }}</span>
+        <span>Active Filters: {{ report_active_filters_text }}</span>
+      </div>
+    </div>
+    <div class="report-section-head">
+      <div>
+        <p class="eyebrow">Depreciation Summary</p>
+        <h2>Depreciation totals and latest records</h2>
+        <p>Printable depreciation report showing annual depreciation, accumulated depreciation, current book value, and asset location context.</p>
+      </div>
+      <div class="report-section-actions">
+        <span class="chip">Depreciation: {{ depreciation_totals.total_depreciation|default:0 }}</span>
+        <span class="chip">Accumulated: {{ depreciation_totals.total_accumulated|default:0 }}</span>
+        <span class="chip">Book Value: {{ depreciation_totals.total_book_value|default:0 }}</span>
+      </div>
+    </div>
+
+    {% if depreciation_records %}
+      <table class="report-data-table">
+        <thead>
+          <tr>
+            <th>Asset</th>
+            <th>Department</th>
+            <th>Location</th>
+            <th>Year</th>
+            <th>Depreciation</th>
+            <th>Accumulated</th>
+            <th>Net Book Value</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for record in depreciation_records %}
+            <tr>
+              <td>{{ record.asset.asset_id }} - {{ record.asset.name }}</td>
+              <td>{{ record.asset.current_location.department.name }}</td>
+              <td>{{ record.asset.current_location.short_label }}</td>
+              <td>{{ record.year }}</td>
+              <td>{{ record.depreciation_amount }}</td>
+              <td>{{ record.accumulated_depreciation }}</td>
+              <td>{{ record.net_book_value }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="empty-state">
+        <h3>No depreciation records</h3>
+        <p>No depreciation entries are available yet.</p>
+      </div>
+    {% endif %}
+    <div class="report-approval-block">
+      <p class="report-approval-note">System-generated report prepared for review and approval.</p>
+      <div class="report-signature-grid">
+        <div class="report-signature-card">
+          <span>Reviewed By</span>
+          <div class="report-signature-line"></div>
+          <strong>Name, signature, and date</strong>
+        </div>
+        <div class="report-signature-card">
+          <span>Approved By</span>
+          <div class="report-signature-line"></div>
+          <strong>Name, signature, and date</strong>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section reports-center-section is-hidden" id="request-report" data-report-section="request-report">
+    <div class="report-print-banner">
+      <p class="eyebrow">FASSETS Official Report Copy</p>
+      <strong class="report-print-system">Fixed Assets Management System</strong>
+      <h3>Request Report</h3>
+      <div class="report-print-banner-meta">
+        <span>Generated By: {{ report_generated_by }}</span>
+        <span>Generated On: {{ report_generated_at|date:"M d, Y H:i" }}</span>
+        <span>Active Filters: {{ report_active_filters_text }}</span>
+      </div>
+    </div>
+    <div class="report-section-head">
+      <div>
+        <p class="eyebrow">Request Report</p>
+        <h2>Asset requests and decisions</h2>
+        <p>Printable request register with requester details, requested use window, approval outcome, decision ownership, and handover information.</p>
+      </div>
+      <div class="report-section-actions">
+        <span class="chip">{{ asset_requests_report|length }} request{{ asset_requests_report|length|pluralize }}</span>
+      </div>
+    </div>
+    {% if asset_requests_report %}
+      <table class="report-data-table">
+        <thead>
+          <tr>
+            <th>Asset</th>
+            <th>Requested By</th>
+            <th>Status</th>
+            <th>Requested At</th>
+            <th>Use Window</th>
+            <th>Location</th>
+            <th>Reviewed By</th>
+            <th>Decision Date</th>
+            <th>Issuer Details</th>
+            <th>Handover Place</th>
+            <th>Reason</th>
+            <th>Decision Note</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in asset_requests_report %}
+            <tr>
+              <td>{{ item.asset.asset_id }} - {{ item.asset.name }}</td>
+              <td>{{ item.requested_by.username }}</td>
+              <td><span class="status {{ item.status }}">{{ item.get_status_display }}</span></td>
+              <td>{{ item.requested_at|date:"M d, Y H:i" }}</td>
+              <td>{% if item.requested_start_at and item.requested_end_at %}{{ item.requested_start_at|date:"M d, Y H:i" }} to {{ item.requested_end_at|date:"M d, Y H:i" }}{% else %}-{% endif %}</td>
+              <td>{{ item.usage_location|default:"-" }}</td>
+              <td>{{ item.reviewed_by|default:"-" }}</td>
+              <td>{{ item.reviewed_at|date:"M d, Y H:i"|default:"-" }}</td>
+              <td>{{ item.issue_person_details|default:"-" }}</td>
+              <td>{{ item.handover_location|default:"-" }}</td>
+              <td>{{ item.message|default:"-" }}</td>
+              <td>{{ item.decline_reason|default:"-" }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="empty-state">
+        <h3>No request records</h3>
+        <p>No asset request data is available yet.</p>
+      </div>
+    {% endif %}
+    <div class="report-approval-block">
+      <p class="report-approval-note">System-generated report prepared for review and approval.</p>
+      <div class="report-signature-grid">
+        <div class="report-signature-card">
+          <span>Reviewed By</span>
+          <div class="report-signature-line"></div>
+          <strong>Name, signature, and date</strong>
+        </div>
+        <div class="report-signature-card">
+          <span>Approved By</span>
+          <div class="report-signature-line"></div>
+          <strong>Name, signature, and date</strong>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  (() => {
+    const sections = Array.from(document.querySelectorAll('[data-report-section]'));
+    const navLinks = Array.from(document.querySelectorAll('[data-report-target]'));
+    const printButton = document.querySelector('[data-report-print-button]');
+    const assetStatusFilter = document.querySelector('[data-asset-status-filter]');
+    const dependentStatusFilters = Array.from(document.querySelectorAll('[data-dependent-status-filter]'));
+    const availabilityFilterNote = document.querySelector('[data-availability-filter-note]');
+    if (!sections.length || !navLinks.length) return;
+
+    const defaultSection = 'inventory-report';
+    let currentSectionId = defaultSection;
+
+    function showReportSection(sectionId) {
+      const resolvedSectionId = sections.some((section) => section.dataset.reportSection === sectionId)
+        ? sectionId
+        : defaultSection;
+      currentSectionId = resolvedSectionId;
+
+      sections.forEach((section) => {
+        section.classList.toggle('is-hidden', section.dataset.reportSection !== resolvedSectionId);
+      });
+
+      navLinks.forEach((link) => {
+        link.classList.toggle('is-active', link.dataset.reportTarget === resolvedSectionId);
+      });
+    }
+
+    function syncFromHash() {
+      showReportSection(window.location.hash.replace('#', '') || defaultSection);
+    }
+
+    function syncDependentStatusFilters() {
+      if (!assetStatusFilter || !dependentStatusFilters.length) return;
+
+      const ignoreActivityStatuses = assetStatusFilter.value === 'available';
+      dependentStatusFilters.forEach((field) => {
+        field.disabled = ignoreActivityStatuses;
+        if (ignoreActivityStatuses) {
+          field.value = '';
+        }
+      });
+
+      if (availabilityFilterNote) {
+        availabilityFilterNote.hidden = !ignoreActivityStatuses;
+      }
+    }
+
+    function openPrintView() {
+      const printUrl = new URL(window.location.href);
+      printUrl.hash = '';
+      printUrl.searchParams.set('print', '1');
+      printUrl.searchParams.set('section', currentSectionId || defaultSection);
+      window.open(printUrl.toString(), '_blank', 'noopener');
+    }
+
+    window.addEventListener('hashchange', syncFromHash);
+    assetStatusFilter?.addEventListener('change', syncDependentStatusFilters);
+    printButton?.addEventListener('click', openPrintView);
+    syncDependentStatusFilters();
+    syncFromHash();
+  })();
+</script>
+{% endblock %}

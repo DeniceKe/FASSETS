@@ -14,6 +14,7 @@ from .views import (
     DashboardReportView,
     DepartmentViewSet,
     FacultyViewSet,
+    HealthCheckView,
     LocationViewSet,
     MaintenanceHistoryReportView,
     MaintenanceViewSet,
@@ -36,6 +37,7 @@ router.register("maintenance", MaintenanceViewSet, basename="maintenance")
 
 urlpatterns = [
     path("", include(router.urls)),
+    path("health/", HealthCheckView.as_view(), name="health-check"),
     path("reports/dashboard/", DashboardReportView.as_view(), name="report-dashboard"),
     path("reports/assets-by-department/", AssetDistributionReportView.as_view(), name="report-assets-by-department"),
     path("reports/maintenance-history/", MaintenanceHistoryReportView.as_view(), name="report-maintenance-history"),

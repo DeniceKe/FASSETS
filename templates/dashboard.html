@@ -3,298 +3,1934 @@
 {% block title %}Dashboard | FASSETS{% endblock %}
 {% block content %}
 <section class="page-card">
-  <div class="section">
-    <p class="eyebrow">Dashboard</p>
-    <div class="grid two">
-      <div>
-        <h1>Welcome to your asset workspace.</h1>
-        <p>Check what is available in your department, follow request progress, and stay up to date on asset activity without exposing backend tools in the user area.</p>
-        <div class="inline-meta">
-          <span class="chip">Role: {{ user_role }}</span>
-          <span class="chip">Department: {% if user_department %}{{ user_department.name }}{% else %}All Departments{% endif %}</span>
-          <span class="chip">Authenticated as {{ user.username }}</span>
-        </div>
-      </div>
-      <div class="panel accent-panel">
-        <p class="eyebrow" style="color: rgba(255,255,255,0.72);">Status</p>
-        <h2 style="color: #fff;">Request assets with less friction</h2>
-        <p>Browse department inventory below, submit a request when an item is available, and track whether it is pending, approved, or declined.</p>
-        <div class="inline-meta">
-          <span class="pill" style="background: rgba(255,255,255,0.12); color: #fff; border-color: rgba(255,255,255,0.14);">Department-aware</span>
-          <span class="pill" style="background: rgba(255,255,255,0.12); color: #fff; border-color: rgba(255,255,255,0.14);">Request tracking</span>
-        </div>
-      </div>
-    </div>
-  </div>
+  <style>
+    .page-card {
+      background:
+        radial-gradient(circle at top left, rgba(59, 130, 246, 0.08), transparent 22%),
+        radial-gradient(circle at bottom right, rgba(15, 23, 42, 0.06), transparent 28%),
+        rgba(255, 255, 255, 0.92);
+    }
 
-  <div class="section">
-    <div class="grid metrics">
-      <div class="metric-card">
-        <strong>{{ total_assets }}</strong>
-        <span>Total Assets</span>
-      </div>
-      <div class="metric-card">
-        <strong>{{ available }}</strong>
-        <span>Available</span>
-      </div>
-      <div class="metric-card">
-        <strong>{{ allocated }}</strong>
-        <span>Allocated</span>
-      </div>
-      <div class="metric-card">
-        <strong>{{ maintenance }}</strong>
-        <span>Under Maintenance</span>
-      </div>
-      <div class="metric-card">
-        <strong>{{ active_allocations }}</strong>
-        <span>Active Allocations</span>
-      </div>
-      <div class="metric-card">
-        <strong>{{ open_maintenance }}</strong>
-        <span>Open Maintenance Jobs</span>
-      </div>
-    </div>
-  </div>
+    .dashboard-shell {
+      display: grid;
+      grid-template-columns: minmax(258px, 304px) minmax(0, 1fr);
+      min-height: 700px;
+      align-items: stretch;
+    }
 
-  <div class="section">
-    <div class="grid two">
-      <div class="panel">
-        <div class="toolbar">
-          <div>
-            <p class="eyebrow">Recent Assets</p>
-            <h2>Newest inventory records</h2>
+    .dashboard-sidebar {
+      display: grid;
+      align-content: start;
+      gap: 12px;
+      padding: 18px 14px;
+      min-height: 0;
+      border-right: 1px solid rgba(140, 155, 182, 0.18);
+      background:
+        radial-gradient(circle at top center, rgba(59, 130, 246, 0.24), transparent 28%),
+        linear-gradient(180deg, #0f172a 0%, #152238 48%, #1c2c44 100%);
+      color: rgba(245, 247, 255, 0.96);
+    }
+
+    .dashboard-sidebar-card {
+      display: grid;
+      gap: 10px;
+      padding: 14px;
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.04));
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+    }
+
+    .dashboard-sidebar-card h1,
+    .dashboard-sidebar-card h2,
+    .dashboard-sidebar-card h3,
+    .dashboard-sidebar-card p {
+      margin-bottom: 0;
+    }
+
+    .dashboard-profile-card p,
+    .dashboard-nav-card p,
+    .dashboard-helper-card p {
+      color: rgba(220, 227, 247, 0.72);
+    }
+
+    .dashboard-profile-card {
+      display: grid;
+      gap: 10px;
+    }
+
+    .dashboard-profile-top {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .dashboard-avatar {
+      width: 48px;
+      height: 48px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background: linear-gradient(135deg, rgba(37, 99, 235, 0.98), rgba(30, 64, 175, 0.82));
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      box-shadow: 0 12px 24px rgba(18, 52, 112, 0.3);
+    }
+
+    .dashboard-profile-meta {
+      min-width: 0;
+    }
+
+    .dashboard-profile-meta h2,
+    .dashboard-profile-meta p {
+      margin: 0;
+    }
+
+    .dashboard-profile-meta h2 {
+      font-size: 1rem;
+      color: #fff;
+    }
+
+    .dashboard-profile-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: fit-content;
+      margin-top: 4px;
+      padding: 7px 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(96, 165, 250, 0.26);
+      background: rgba(255, 255, 255, 0.72);
+      color: #1d4ed8;
+      text-decoration: none;
+      transition: background 0.2s ease, border-color 0.2s ease;
+    }
+
+    .dashboard-profile-link:hover {
+      background: rgba(29, 78, 216, 0.12);
+      border-color: rgba(37, 99, 235, 0.28);
+      color: #173ea6;
+    }
+
+    .dashboard-sidebar-links {
+      display: grid;
+      gap: 6px;
+    }
+
+    .dashboard-sidebar-link {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.03);
+      color: rgba(245, 247, 255, 0.96);
+      text-decoration: none;
+      transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .dashboard-sidebar-link:hover {
+      background: rgba(37, 99, 235, 0.16);
+      border-color: rgba(96, 165, 250, 0.28);
+      transform: translateX(2px);
+      box-shadow: 0 12px 22px rgba(30, 30, 56, 0.24);
+    }
+
+    .dashboard-sidebar-link.is-active {
+      background: linear-gradient(135deg, rgba(37, 99, 235, 0.28), rgba(30, 64, 175, 0.24));
+      border-color: rgba(147, 197, 253, 0.28);
+      box-shadow: 0 14px 24px rgba(15, 23, 42, 0.22);
+    }
+
+    .dashboard-nav-icon {
+      width: 30px;
+      height: 30px;
+      flex: 0 0 30px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #fff;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+    }
+
+    .dashboard-nav-text {
+      min-width: 0;
+      display: grid;
+      gap: 2px;
+    }
+
+    .dashboard-sidebar-link strong {
+      font-size: 0.92rem;
+      color: #fff;
+    }
+
+    .dashboard-sidebar-link span {
+      color: rgba(220, 227, 247, 0.66);
+      font-size: 0.82rem;
+    }
+
+    .dashboard-main {
+      display: grid;
+      gap: 10px;
+      padding: 12px;
+      grid-auto-rows: min-content;
+      align-content: start;
+      min-height: 0;
+      background:
+        radial-gradient(circle at top right, rgba(59, 130, 246, 0.12), transparent 24%),
+        linear-gradient(180deg, rgba(249, 251, 255, 0.98), rgba(239, 244, 252, 0.9));
+    }
+
+    .dashboard-main > * {
+      align-self: start;
+      min-height: 0;
+    }
+
+    .dashboard-section {
+      display: grid;
+      gap: 10px;
+      padding: 12px;
+      grid-auto-rows: min-content;
+      align-content: start;
+      border-radius: 18px;
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      background: linear-gradient(180deg, rgba(255,255,255,0.94), rgba(250,252,255,0.88));
+      box-shadow: 0 14px 28px rgba(15, 23, 42, 0.08);
+      scroll-margin-top: 110px;
+    }
+
+    .dashboard-section > * {
+      align-self: start;
+      min-height: 0;
+    }
+
+    .dashboard-section.is-hidden {
+      display: none;
+    }
+
+    .dashboard-section.is-hero {
+      background:
+        radial-gradient(circle at top right, rgba(37, 99, 235, 0.16), transparent 26%),
+        linear-gradient(180deg, rgba(255,255,255,0.97), rgba(246, 249, 255, 0.92));
+    }
+
+    .dashboard-section-head {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: flex-start;
+      justify-content: space-between;
+    }
+
+    .dashboard-section-copy {
+      min-width: 0;
+      display: grid;
+      gap: 4px;
+    }
+
+    .dashboard-section-copy h2,
+    .dashboard-section-copy p {
+      margin-bottom: 0;
+    }
+
+    .dashboard-grid-two {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      align-items: start;
+      align-content: start;
+    }
+
+    .dashboard-span-two {
+      grid-column: 1 / -1;
+    }
+
+    .dashboard-hero-grid {
+      display: grid;
+      gap: 14px;
+      grid-template-columns: minmax(0, 1.4fr) minmax(260px, 0.8fr);
+      align-items: start;
+      align-content: start;
+    }
+
+    .section-stack {
+      display: grid;
+      gap: 10px;
+      align-content: start;
+    }
+
+    .dashboard-summary-card,
+    .dashboard-insight-card {
+      display: grid;
+      gap: 8px;
+      padding: 12px;
+      border-radius: 16px;
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      background: rgba(255,255,255,0.82);
+    }
+
+    .dashboard-summary-card {
+      box-shadow: 0 16px 32px rgba(15, 23, 42, 0.06);
+    }
+
+    .dashboard-insight-card {
+      background: linear-gradient(160deg, #163a78 0%, #1d4ed8 100%);
+      color: #fff;
+      box-shadow: 0 20px 36px rgba(29, 78, 216, 0.22);
+    }
+
+    .dashboard-insight-card p,
+    .dashboard-insight-card .eyebrow {
+      color: rgba(255,255,255,0.8);
+    }
+
+    .dashboard-insight-card h3 {
+      margin: 0;
+      font-size: 1.18rem;
+      color: #fff;
+    }
+
+    .dashboard-meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .dashboard-metric-grid {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    }
+
+    .dashboard-main .metric-card {
+      position: relative;
+      overflow: hidden;
+      padding: 12px;
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(246, 249, 255, 0.9));
+      box-shadow: 0 14px 28px rgba(15, 23, 42, 0.06);
+    }
+
+    .dashboard-main .metric-card::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto auto 0;
+      width: 100%;
+      height: 4px;
+      background: linear-gradient(90deg, #1d4ed8, #60a5fa);
+    }
+
+    .dashboard-main .metric-card strong {
+      font-size: 1.85rem;
+      line-height: 1;
+      color: #0f172a;
+    }
+
+    .dashboard-main .panel {
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(248, 251, 255, 0.9));
+      box-shadow: 0 14px 28px rgba(15, 23, 42, 0.05);
+      padding: 12px;
+    }
+
+    .dashboard-main .toolbar {
+      margin-bottom: 6px;
+    }
+
+    .dashboard-main table {
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      background: rgba(255,255,255,0.88);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.4);
+    }
+
+    .dashboard-main thead {
+      background: linear-gradient(180deg, rgba(219, 234, 254, 0.92), rgba(239, 246, 255, 0.96));
+    }
+
+    .dashboard-main th {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #1d4ed8;
+      font-weight: 700;
+    }
+
+    .dashboard-main td {
+      border-bottom-color: rgba(148, 163, 184, 0.12);
+    }
+
+    .dashboard-main .list-item,
+    .dashboard-main .request-card {
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      background: rgba(255,255,255,0.76);
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+      padding: 12px;
+      border-radius: 16px;
+    }
+
+    .dashboard-main .empty-state {
+      background: linear-gradient(180deg, rgba(248, 250, 252, 0.9), rgba(255,255,255,0.86));
+      border-color: rgba(148, 163, 184, 0.24);
+      padding: 16px;
+    }
+
+    .dashboard-main .filters {
+      padding: 8px;
+      border-radius: 14px;
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      background: rgba(255,255,255,0.75);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.36);
+    }
+
+    .dashboard-main input[type="search"],
+    .dashboard-main input[type="text"],
+    .dashboard-main input[type="datetime-local"],
+    .dashboard-main textarea {
+      background: rgba(255,255,255,0.96);
+      border-color: rgba(148, 163, 184, 0.24);
+    }
+
+    .dashboard-main .request-action-panel[open] {
+      border-color: rgba(96, 165, 250, 0.22);
+      background: linear-gradient(180deg, rgba(248, 251, 255, 0.96), rgba(255,255,255,0.9));
+      box-shadow: 0 12px 24px rgba(15, 23, 42, 0.05);
+    }
+
+    .request-summary {
+      display: grid;
+      gap: 8px;
+    }
+
+    .request-collapsible {
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      border-radius: 18px;
+      background: rgba(255,255,255,0.5);
+      overflow: hidden;
+    }
+
+    .request-collapsible summary {
+      list-style: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      cursor: pointer;
+      background: rgba(255,255,255,0.72);
+    }
+
+    .request-collapsible summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .request-collapsible-summary {
+      min-width: 0;
+      display: grid;
+      gap: 4px;
+    }
+
+    .request-collapsible-summary h3,
+    .request-collapsible-summary p {
+      margin: 0;
+    }
+
+    .request-collapsible-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: #1d4ed8;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .request-collapsible-toggle::before {
+      content: "+";
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 999px;
+      background: rgba(219, 234, 254, 0.9);
+      color: #173ea6;
+      font-size: 1rem;
+      line-height: 1;
+    }
+
+    .request-collapsible[open] .request-collapsible-toggle::before {
+      content: "-";
+    }
+
+    .request-collapsible-body {
+      display: grid;
+      gap: 8px;
+      padding: 0 12px 12px;
+    }
+
+    .request-card {
+      display: grid;
+      gap: 10px;
+      padding: 12px;
+      border-radius: 16px;
+    }
+
+    .request-card-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .request-card-title {
+      font-size: 1.05rem;
+      color: #0f172a;
+    }
+
+    .request-card-action-form {
+      margin: 0;
+    }
+
+    .request-detail-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 8px;
+    }
+
+    .request-detail {
+      display: grid;
+      gap: 4px;
+      padding: 8px 10px;
+      border-radius: 14px;
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      background: rgba(248, 250, 252, 0.8);
+    }
+
+    .dashboard-main .grid.three {
+      gap: 10px;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      align-items: start;
+      align-content: start;
+    }
+
+    .dashboard-main .grid.three .panel {
+      display: grid;
+      gap: 8px;
+      align-content: start;
+      min-height: 0;
+    }
+
+    .dashboard-main .grid.three .panel p {
+      margin-bottom: 0;
+    }
+
+    .task-flow-grid {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      align-items: start;
+    }
+
+    .task-flow-card {
+      display: grid;
+      gap: 8px;
+      align-content: start;
+    }
+
+    .task-flow-card h3,
+    .task-flow-card p {
+      margin: 0;
+    }
+
+    .task-flow-card .button-link {
+      width: fit-content;
+    }
+
+    .asset-care-summary {
+      margin-bottom: 10px;
+    }
+
+    .asset-care-table td:last-child,
+    .asset-care-table th:last-child {
+      white-space: normal;
+      width: 176px;
+      min-width: 176px;
+    }
+
+    .asset-care-table td:nth-last-child(2),
+    .asset-care-table th:nth-last-child(2) {
+      min-width: 132px;
+    }
+
+    .asset-care-table .request-action-panel {
+      min-width: 0;
+    }
+
+    .asset-care-table .list-stack {
+      gap: 6px;
+    }
+
+    .asset-care-table .request-action-summary,
+    .asset-care-table .cta-button,
+    .asset-care-table .button-link {
+      min-width: 0;
+      width: 100%;
+      padding: 9px 12px;
+    }
+
+    .asset-care-table .request-inline-form {
+      gap: 8px;
+    }
+
+    .asset-care-table .request-inline-form p {
+      margin: 0;
+      font-size: 0.88rem;
+      line-height: 1.4;
+    }
+
+    .asset-care-row.is-notification-focus {
+      background: rgba(219, 234, 254, 0.42);
+      box-shadow: inset 4px 0 0 #1d4ed8;
+    }
+
+    .asset-care-row.is-notification-focus td {
+      background: transparent;
+    }
+
+    .asset-maintenance-note {
+      display: grid;
+      gap: 6px;
+      margin-top: 8px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(29, 78, 216, 0.14);
+      background: rgba(239, 246, 255, 0.72);
+    }
+
+    .asset-maintenance-note p {
+      margin: 0;
+    }
+
+    .notification-focus-banner {
+      display: grid;
+      gap: 8px;
+      padding: 14px 16px;
+      border-radius: 18px;
+      border: 1px solid rgba(29, 78, 216, 0.16);
+      background: linear-gradient(180deg, rgba(239, 246, 255, 0.98), rgba(219, 234, 254, 0.78));
+      box-shadow: 0 16px 28px rgba(29, 78, 216, 0.08);
+    }
+
+    .notification-focus-banner p,
+    .notification-focus-banner h3 {
+      margin: 0;
+    }
+
+    .request-detail-wide {
+      grid-column: span 2;
+    }
+
+    .request-detail-label {
+      font-size: 0.76rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #64748b;
+    }
+
+    .request-detail-value {
+      color: #334155;
+      line-height: 1.55;
+      word-break: break-word;
+    }
+
+    .request-status-value {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+    }
+
+    @media (min-width: 981px) {
+      .dashboard-shell {
+        min-height: 700px;
+        overflow: visible;
+        align-items: start;
+      }
+
+      .dashboard-sidebar {
+        position: sticky;
+        top: 18px;
+        align-self: start;
+        max-height: calc(100dvh - 36px);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        scrollbar-gutter: stable;
+        scroll-behavior: smooth;
+      }
+
+      .dashboard-main {
+        align-self: start;
+        min-height: 700px;
+        overflow: visible;
+      }
+    }
+
+    @media (max-width: 980px) {
+      .dashboard-shell {
+        grid-template-columns: 1fr;
+        height: auto;
+        overflow: visible;
+      }
+
+      .dashboard-hero-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .dashboard-sidebar {
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+        position: static;
+        height: auto;
+        overflow: visible;
+      }
+
+      .dashboard-main {
+        padding: 10px;
+        height: auto;
+        overflow: visible;
+      }
+
+      .request-detail-wide {
+        grid-column: span 1;
+      }
+    }
+
+    /* Aesthetic extension: Ivory Dossier Deco */
+    .dashboard-shell {
+      position: relative;
+      grid-template-columns: minmax(250px, 300px) minmax(0, 1fr);
+      gap: 0;
+    }
+
+    .dashboard-sidebar {
+      margin: 44px -34px 18px 18px;
+      border: 1px solid rgba(126, 164, 207, 0.16);
+      border-right: 0;
+      border-radius: 34px 24px 28px 24px;
+      background: #ffffff;
+      box-shadow: 0 24px 44px rgba(129, 102, 63, 0.16);
+      z-index: 2;
+      clip-path: none !important;
+    }
+
+    .dashboard-sidebar-card {
+      background: rgba(255, 255, 255, 0.92);
+      border-color: rgba(132, 107, 64, 0.12);
+    }
+
+    .dashboard-profile-card p,
+    .dashboard-nav-card p,
+    .dashboard-helper-card p {
+      color: rgba(30, 64, 175, 0.68);
+    }
+
+    .dashboard-sidebar-link {
+      border-radius: 20px !important;
+      clip-path: none !important;
+      background: rgba(255, 255, 255, 0.42);
+      color: #1e3a8a;
+    }
+
+    .dashboard-sidebar-link:hover {
+      transform: translateX(8px);
+      background: rgba(29, 127, 140, 0.08);
+      border-color: rgba(29, 127, 140, 0.18);
+      box-shadow: 0 18px 28px rgba(91, 132, 140, 0.14);
+    }
+
+    .dashboard-sidebar-link.is-active {
+      background: linear-gradient(135deg, rgba(121, 184, 193, 0.18), rgba(207, 234, 237, 0.14));
+      border-color: rgba(121, 184, 193, 0.2);
+    }
+
+    .dashboard-nav-icon {
+      background: linear-gradient(135deg, rgba(121, 184, 193, 0.14), rgba(207, 234, 237, 0.12));
+      color: #2d2518;
+    }
+
+    .dashboard-sidebar-link strong {
+      color: #1d4ed8;
+    }
+
+    .dashboard-sidebar-link span {
+      color: rgba(37, 99, 235, 0.82);
+    }
+
+    .dashboard-sidebar-link.is-active strong {
+      color: #173ea6;
+    }
+
+    .dashboard-sidebar-link.is-active span {
+      color: rgba(29, 78, 216, 0.94);
+    }
+
+    .dashboard-main {
+      padding: 42px 18px 24px 64px;
+      background:
+        linear-gradient(180deg, rgba(236, 247, 249, 0.52), transparent),
+        radial-gradient(circle at top right, rgba(121, 184, 193, 0.08), transparent 24%);
+    }
+
+    @media (min-width: 981px) {
+      .dashboard-sidebar::-webkit-scrollbar,
+      .dashboard-main::-webkit-scrollbar {
+        width: 10px;
+      }
+
+      .dashboard-sidebar::-webkit-scrollbar-track,
+      .dashboard-main::-webkit-scrollbar-track {
+        background: rgba(207, 234, 237, 0.4);
+        border-radius: 999px;
+      }
+
+      .dashboard-sidebar::-webkit-scrollbar-thumb,
+      .dashboard-main::-webkit-scrollbar-thumb {
+        background: rgba(121, 184, 193, 0.74);
+        border-radius: 999px;
+        border: 2px solid rgba(255, 255, 255, 0.75);
+      }
+    }
+
+    .dashboard-section {
+      position: relative;
+      overflow: hidden;
+      border-radius: 30px 22px 28px 18px;
+      background:
+        linear-gradient(180deg, rgba(248, 252, 253, 0.94), rgba(230, 244, 246, 0.82));
+      border-color: rgba(124, 171, 179, 0.14);
+      box-shadow: 0 24px 42px rgba(91, 132, 140, 0.14);
+      animation: dossier-rise 0.82s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
+    .dashboard-section::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto auto 0;
+      width: 160px;
+      height: 2px;
+      background: linear-gradient(90deg, rgba(121, 184, 193, 0), rgba(121, 184, 193, 0.94), rgba(207, 234, 237, 0));
+      pointer-events: none;
+    }
+
+    .dashboard-section:nth-of-type(odd) {
+      margin-right: 4vw;
+    }
+
+    .dashboard-section:nth-of-type(even) {
+      margin-left: 1.5vw;
+    }
+
+    .dashboard-main .panel,
+    .dashboard-main .metric-card,
+    .dashboard-summary-card {
+      background: rgba(255, 255, 255, 0.62);
+      border-color: rgba(124, 171, 179, 0.12);
+      box-shadow: 0 18px 32px rgba(91, 132, 140, 0.12);
+    }
+
+    .dashboard-main .panel:hover,
+    .dashboard-main .metric-card:hover,
+    .dashboard-summary-card:hover {
+      transform: translateY(-7px) rotate(-0.75deg);
+    }
+
+    .dashboard-insight-card {
+      background: linear-gradient(145deg, rgba(121, 184, 193, 0.88), rgba(95, 170, 182, 0.44));
+      color: #1f2230;
+    }
+
+    .dashboard-insight-card h3,
+    .dashboard-insight-card p,
+    .dashboard-insight-card .eyebrow {
+      color: #1f2230;
+    }
+
+    .dashboard-main thead {
+      background: linear-gradient(90deg, rgba(121, 184, 193, 0.18), rgba(207, 234, 237, 0.08));
+    }
+
+    .dashboard-main th {
+      color: var(--brand);
+    }
+
+    .dashboard-main .empty-state,
+    .dashboard-main .filters,
+    .dashboard-main .request-action-panel[open] {
+      background: rgba(248, 252, 253, 0.66);
+      border-color: rgba(124, 171, 179, 0.12);
+    }
+
+    @media (max-width: 980px) {
+      .dashboard-sidebar {
+        margin: 0;
+        border-right: 1px solid rgba(126, 164, 207, 0.16);
+        clip-path: none;
+        border-radius: 28px 28px 20px 20px;
+      }
+
+      .dashboard-main {
+        padding: 12px;
+      }
+
+      .dashboard-section:nth-of-type(odd),
+      .dashboard-section:nth-of-type(even) {
+        margin-left: 0;
+        margin-right: 0;
+      }
+    }
+  </style>
+
+  <div class="dashboard-shell">
+    <aside class="dashboard-sidebar">
+      <div class="dashboard-sidebar-card dashboard-profile-card">
+        <div class="dashboard-profile-top">
+          <span class="dashboard-avatar">{{ user.username|slice:":2"|upper }}</span>
+          <div class="dashboard-profile-meta">
+            <h2>{{ user.username }}</h2>
+            <a class="dashboard-profile-link" href="{% url 'profile' %}">Profile details</a>
           </div>
-          {% if user.is_staff %}
-            <a class="button-link secondary" href="{% url 'assets:asset_list' %}">Open Inventory</a>
-          {% else %}
-            <a class="button-link secondary" href="#department-assets">Browse Department Assets</a>
-          {% endif %}
         </div>
-        {% if recent_assets %}
-          <div class="list-stack">
-            {% for asset in recent_assets %}
-              <div class="list-item">
-                <strong>{{ asset.asset_id }} - {{ asset.name }}</strong>
-                <span class="muted">{{ asset.category.name }} in {{ asset.current_location.department.name }}</span>
-                <div class="inline-meta">
-                  <span class="status {{ asset.status }}">{{ asset.get_status_display }}</span>
-                  <span class="status">{{ asset.get_condition_display }}</span>
+      </div>
+
+      <nav class="dashboard-sidebar-card dashboard-nav-card">
+        <p class="eyebrow">Workspace</p>
+        <div class="dashboard-sidebar-links">
+          <a class="dashboard-sidebar-link {% if default_dashboard_section == 'personal-overview' %}is-active{% endif %}" href="#personal-overview" data-dashboard-target="personal-overview">
+            <span class="dashboard-nav-icon">ME</span>
+            <span class="dashboard-nav-text">
+              <strong>My Assets</strong>
+              <span>Assigned and requested</span>
+            </span>
+          </a>
+          <a class="dashboard-sidebar-link {% if default_dashboard_section == 'department-assets' %}is-active{% endif %}" href="#department-assets" data-dashboard-target="department-assets">
+            <span class="dashboard-nav-icon">DA</span>
+            <span class="dashboard-nav-text">
+              <strong>Department Assets</strong>
+              <span>Search and request</span>
+            </span>
+          </a>
+          {% if can_view_user_asset_lookup %}
+            <a class="dashboard-sidebar-link {% if default_dashboard_section == 'user-asset-lookup' %}is-active{% endif %}" href="#user-asset-lookup" data-dashboard-target="user-asset-lookup">
+              <span class="dashboard-nav-icon">UA</span>
+              <span class="dashboard-nav-text">
+                <strong>User Assets</strong>
+                <span>Find assigned items</span>
+              </span>
+            </a>
+          {% endif %}
+          {% if role_workspace_links %}
+            <a class="dashboard-sidebar-link {% if default_dashboard_section == 'role-workspace' %}is-active{% endif %}" href="#role-workspace" data-dashboard-target="role-workspace">
+              <span class="dashboard-nav-icon">RW</span>
+              <span class="dashboard-nav-text">
+                <strong>Workspace Tools</strong>
+                <span>{{ role_workspace_links|length }} tools</span>
+              </span>
+            </a>
+          {% endif %}
+          <a class="dashboard-sidebar-link {% if default_dashboard_section == 'inventory-views' %}is-active{% endif %}" href="#inventory-views" data-dashboard-target="inventory-views">
+            <span class="dashboard-nav-icon">IV</span>
+            <span class="dashboard-nav-text">
+              <strong>Inventory Views</strong>
+              <span>Recent assets</span>
+            </span>
+          </a>
+          {% if can_view_activity_overview %}
+            <a class="dashboard-sidebar-link {% if default_dashboard_section == 'activity-overview' %}is-active{% endif %}" href="#activity-overview" data-dashboard-target="activity-overview">
+              <span class="dashboard-nav-icon">AC</span>
+              <span class="dashboard-nav-text">
+                <strong>Activity Overview</strong>
+                <span>Allocations</span>
+              </span>
+            </a>
+          {% endif %}
+          {% if can_view_reports %}
+            <a class="dashboard-sidebar-link {% if default_dashboard_section == 'reports' %}is-active{% endif %}" href="#reports" data-dashboard-target="reports">
+              <span class="dashboard-nav-icon">RP</span>
+              <span class="dashboard-nav-text">
+                <strong>Reports</strong>
+                <span>Generate reports</span>
+              </span>
+            </a>
+          {% endif %}
+          {% if show_department_category_breakdown %}
+            <a class="dashboard-sidebar-link {% if default_dashboard_section == 'category-control' %}is-active{% endif %}" href="#category-control" data-dashboard-target="category-control">
+              <span class="dashboard-nav-icon">CC</span>
+              <span class="dashboard-nav-text">
+                <strong>Category Control</strong>
+                <span>Summary</span>
+              </span>
+            </a>
+          {% endif %}
+          <a class="dashboard-sidebar-link {% if default_dashboard_section == 'help-center' %}is-active{% endif %}" href="#help-center" data-dashboard-target="help-center">
+            <span class="dashboard-nav-icon">HC</span>
+            <span class="dashboard-nav-text">
+              <strong>Help Center</strong>
+              <span>Role-based help</span>
+            </span>
+          </a>
+        </div>
+      </nav>
+
+    </aside>
+
+    <div class="dashboard-main" data-default-dashboard-section="{{ default_dashboard_section }}">
+      <section class="dashboard-section {% if default_dashboard_section != 'personal-overview' %}is-hidden{% endif %}" id="personal-overview" data-dashboard-section="personal-overview">
+        <div class="section-stack">
+          {% if focused_notification %}
+            <div class="notification-focus-banner">
+              <p class="eyebrow">Notification Reason</p>
+              <h3>{{ focused_notification.title }}</h3>
+              <p>{{ focused_notification.message }}</p>
+              <p><strong>What you need to do:</strong> {{ focused_notification.action_required }}</p>
+              {% if focused_notification.context_note %}
+                <p><strong>More context:</strong> {{ focused_notification.context_note }}</p>
+              {% endif %}
+            </div>
+          {% endif %}
+
+          <div class="panel">
+            <p class="eyebrow">Under Your Care</p>
+            <h2>Assets currently assigned to you</h2>
+            {% if assets_under_care %}
+              <div class="profile-detail-grid asset-care-summary">
+                <div class="list-item">
+                  <strong>Total assigned assets</strong>
+                  <span class="muted">{{ assets_under_care_total }}</span>
                 </div>
+                {% for row in assets_under_care_by_category %}
+                  <div class="list-item">
+                    <strong>{{ row.asset__category__name }}</strong>
+                    <span class="muted">{{ row.total }} asset{{ row.total|pluralize }}</span>
+                  </div>
+                {% endfor %}
               </div>
+              <table class="asset-care-table">
+                <thead>
+                  <tr>
+                    <th>Asset</th>
+                    <th>Category</th>
+                    <th>Condition</th>
+                    <th>Location</th>
+                    <th>Return</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for allocation in assets_under_care %}
+                    <tr
+                      id="asset-care-{{ allocation.asset.id }}"
+                      class="asset-care-row {% if notification_focus_asset_id == allocation.asset.id %}is-notification-focus{% endif %}"
+                    >
+                      <td>
+                        <strong>{{ allocation.asset.asset_id }}</strong><br>
+                        <span class="muted">{{ allocation.asset.name }}</span>
+                        {% with open_maintenance=open_maintenance_by_asset_id|get_item:allocation.asset.id %}
+                          {% if open_maintenance %}
+                            <div class="asset-maintenance-note">
+                              <div class="inline-meta">
+                                <span class="status {{ open_maintenance.status }}">{{ open_maintenance.get_status_display }}</span>
+                                <span class="chip">{{ open_maintenance.get_maintenance_type_display }}</span>
+                                <span class="chip">Scheduled {{ open_maintenance.scheduled_date }}</span>
+                              </div>
+                              <p>{{ open_maintenance.description }}</p>
+                            </div>
+                          {% endif %}
+                        {% endwith %}
+                      </td>
+                      <td>{{ allocation.asset.category.name }}</td>
+                      <td><span class="status">{{ allocation.asset.get_condition_display }}</span></td>
+                      <td>{{ allocation.asset.current_location }}</td>
+                      <td>
+                        {% if allocation.expected_return_date %}
+                          <span class="status {{ allocation.status }}">{{ allocation.get_status_display }}</span><br>
+                          <span class="muted">Due {{ allocation.expected_return_date|date:"M d, Y" }}</span>
+                        {% else %}
+                          <span class="status">No scheduled return</span><br>
+                          <span class="muted">Permanent allocation</span>
+                        {% endif %}
+                      </td>
+                      <td>
+                        {% with issue_values=issue_form_values_by_asset|get_item:allocation.asset.id issue_errors=issue_form_errors_by_asset|get_item:allocation.asset.id %}
+                          <div class="list-stack">
+                            <details class="request-action-panel" {% if issue_form_asset_id == allocation.asset.id %}open{% endif %}>
+                              <summary class="request-action-summary">Report An Issue</summary>
+                              <form method="post" action="{% url 'assets:report_asset_issue' allocation.asset.id %}" class="request-inline-form">
+                                {% csrf_token %}
+
+                                {% if issue_errors.non_field_errors %}
+                                  <ul class="form-error-list">
+                                    {% for error in issue_errors.non_field_errors %}
+                                      <li>{{ error }}</li>
+                                    {% endfor %}
+                                  </ul>
+                                {% endif %}
+
+                                <div class="request-field-grid">
+                                  <div class="form-field">
+                                    <textarea id="issue-description-{{ allocation.asset.id }}" name="description" rows="3" placeholder="Describe the fault, damage, missing part, or maintenance needed." required>{{ issue_values.description }}</textarea>
+                                    {% if issue_errors.description %}
+                                      <ul class="form-error-list">
+                                        {% for error in issue_errors.description %}
+                                          <li>{{ error }}</li>
+                                        {% endfor %}
+                                      </ul>
+                                    {% endif %}
+                                  </div>
+                                </div>
+
+                                <button class="cta-button" type="submit">Send Issue Report</button>
+                              </form>
+                            </details>
+                          </div>
+                        {% endwith %}
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            {% else %}
+              <div class="empty-state">
+                <h3>No assets under your care yet</h3>
+                <p>Once an asset is issued directly to your account, it will appear here with its return date and status.</p>
+              </div>
+            {% endif %}
+          </div>
+
+          <div class="panel">
+            <p class="eyebrow">Requests</p>
+            <h2>Your recent asset requests</h2>
+            {% if recent_requests %}
+              <details class="request-collapsible">
+                <summary>
+                  <div class="request-collapsible-summary">
+                    <h3>View request history</h3>
+                    <p>{{ recent_requests|length }} recent request{{ recent_requests|length|pluralize }} available.</p>
+                  </div>
+                  <span class="request-collapsible-toggle">Expand</span>
+                </summary>
+
+                <div class="request-collapsible-body">
+                  <div class="request-summary">
+                    {% for asset_request in recent_requests %}
+                      <div class="request-card">
+                        <div class="request-card-head">
+                          <strong class="request-card-title">{{ asset_request.asset.asset_id }} - {{ asset_request.asset.name }}</strong>
+                          {% if asset_request.status == "pending" %}
+                            <form method="post" action="{% url 'assets:cancel_request' asset_request.id %}" class="request-card-action-form">
+                              {% csrf_token %}
+                              <button type="submit" class="request-cancel-button">Cancel Request</button>
+                            </form>
+                          {% endif %}
+                        </div>
+
+                        <div class="request-detail-grid">
+                          <div class="request-detail">
+                            <span class="request-detail-label">Submitted</span>
+                            <span class="request-detail-value">{{ asset_request.requested_at|date:"M d, Y H:i" }}</span>
+                          </div>
+                          {% if asset_request.reviewed_at %}
+                            <div class="request-detail">
+                              <span class="request-detail-label">Reviewed</span>
+                              <span class="request-detail-value">{{ asset_request.reviewed_at|date:"M d, Y H:i" }}</span>
+                            </div>
+                          {% endif %}
+                          <div class="request-detail request-detail-wide">
+                            <span class="request-detail-label">Reason</span>
+                            <span class="request-detail-value">{{ asset_request.message }}</span>
+                          </div>
+                          <div class="request-detail">
+                            <span class="request-detail-label">Use Window</span>
+                            <span class="request-detail-value">{{ asset_request.requested_start_at|date:"M d, Y H:i" }} to {{ asset_request.requested_end_at|date:"M d, Y H:i" }}</span>
+                          </div>
+                          <div class="request-detail">
+                            <span class="request-detail-label">Place of Use</span>
+                            <span class="request-detail-value">{{ asset_request.usage_location }}</span>
+                          </div>
+                          {% if asset_request.decline_reason %}
+                            <div class="request-detail request-detail-wide">
+                              <span class="request-detail-label">Decline Reason</span>
+                              <span class="request-detail-value">{{ asset_request.decline_reason }}</span>
+                            </div>
+                          {% elif asset_request.status == "approved" %}
+                            <div class="request-detail">
+                              <span class="request-detail-label">Approved By</span>
+                              <span class="request-detail-value">{% firstof asset_request.reviewed_by.get_full_name asset_request.reviewed_by.username "The admin team" %}</span>
+                            </div>
+                            <div class="request-detail request-detail-wide">
+                              <span class="request-detail-label">Issued By</span>
+                              <span class="request-detail-value">{{ asset_request.issue_person_details|linebreaksbr }}</span>
+                            </div>
+                            <div class="request-detail">
+                              <span class="request-detail-label">Handover Place</span>
+                              <span class="request-detail-value">{{ asset_request.handover_location|default:"To be communicated by the admin team." }}</span>
+                            </div>
+                          {% else %}
+                            <div class="request-detail request-detail-wide">
+                              <span class="request-detail-label">Review</span>
+                              <span class="request-detail-value">Your request is waiting for admin review.</span>
+                            </div>
+                          {% endif %}
+                          <div class="request-detail">
+                            <span class="request-detail-label">Status</span>
+                            <span class="request-detail-value request-status-value">
+                              <span class="status {{ asset_request.status }}">{{ asset_request.get_status_display }}</span>
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    {% endfor %}
+                  </div>
+                </div>
+              </details>
+            {% else %}
+              <div class="empty-state">
+                <h3>No requests yet</h3>
+                {% if can_request_assets %}
+                  <p>Once you request an available asset, the status will appear here.</p>
+                {% else %}
+                  <p>Administrator and auditor accounts can review inventory here, but they cannot submit asset requests.</p>
+                {% endif %}
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      </section>
+
+      <section class="dashboard-section {% if default_dashboard_section != 'help-center' %}is-hidden{% endif %}" id="help-center" data-dashboard-section="help-center">
+        <div class="dashboard-section-head">
+          <div class="dashboard-section-copy">
+            <p class="eyebrow">Help Center</p>
+            <h2>Help topics aligned to what your account can do</h2>
+            <p>Only the guidance relevant to your role and workspace is shown here, so you do not have to sort through instructions meant for other users.</p>
+          </div>
+          <a class="button-link secondary" href="{% url 'assets:help_center' %}">Open Help Center</a>
+        </div>
+
+        {% if dashboard_help_topics %}
+          <div class="grid three">
+            {% for topic in dashboard_help_topics %}
+              <article class="panel">
+                <p class="eyebrow">{{ topic.category }}</p>
+                <h3>{{ topic.title }}</h3>
+                <p>{{ topic.summary }}</p>
+                <div class="inline-meta">
+                  <span class="chip">{{ topic.audience }}</span>
+                </div>
+                <a class="button-link secondary" href="{{ topic.action_url }}">{{ topic.action_label }}</a>
+              </article>
             {% endfor %}
           </div>
         {% else %}
           <div class="empty-state">
-            <h3>No assets yet</h3>
-            <p>Asset records will appear here once inventory is registered.</p>
+            <h3>No help topics available</h3>
+            <p>Sign in with a role-enabled account to see help that matches your dashboard access.</p>
           </div>
         {% endif %}
-      </div>
 
-      <div class="panel">
-        <p class="eyebrow">Department Spread</p>
-        <h2>Asset distribution snapshot</h2>
-        {% if department_distribution %}
+        <div class="panel">
+          <p class="eyebrow">Need More Help?</p>
+          <h3>Open the full Help Center</h3>
+          <p>Search the same role-based topics in one place, then jump directly to the related dashboard area or system page.</p>
+          <div class="inline-meta">
+            <span class="chip">{{ dashboard_help_topics_count }} topic{{ dashboard_help_topics_count|pluralize }}</span>
+          </div>
+          <a class="button-link secondary" href="{% url 'assets:help_center' %}">Open Full Help Center</a>
+        </div>
+      </section>
+
+      <section class="dashboard-section {% if default_dashboard_section != 'inventory-views' %}is-hidden{% endif %}" id="inventory-views" data-dashboard-section="inventory-views">
+        <div class="dashboard-section-head">
+          <div class="dashboard-section-copy">
+            <p class="eyebrow">Inventory Views</p>
+            {% if user_role == "Lab Technician" %}
+              <h2>Lab inventory and equipment visibility</h2>
+              <p>Review assigned lab equipment, recent records, and where assets are currently distributed.</p>
+            {% else %}
+              <h2>Recent assets and distribution</h2>
+              <p>Browse the newest records and your department spread.</p>
+            {% endif %}
+          </div>
+        </div>
+
+        <form method="get" class="filters" style="margin-bottom: 1rem;">
+          <div style="flex: 1 1 320px;">
+            <input
+              name="inventory_search"
+              type="search"
+              placeholder="Search inventory by asset ID, name, barcode, location, or category"
+              value="{{ inventory_search }}"
+            >
+          </div>
+          <button type="submit">Search Inventory</button>
+          {% if inventory_search %}
+            <a class="button-link secondary" href="{% url 'assets:dashboard' %}#inventory-views">Clear Search</a>
+          {% endif %}
+        </form>
+
+        <div class="dashboard-grid-two">
+          <div class="panel">
+            <div class="toolbar">
+              <div>
+                <p class="eyebrow">Recent Assets</p>
+                <h2>Newest inventory records</h2>
+              </div>
+              {% if user.is_staff %}
+                <a class="button-link secondary" href="{% url 'assets:asset_list' %}">Open Inventory</a>
+              {% else %}
+                <a class="button-link secondary" href="#department-assets">Browse Department Assets</a>
+              {% endif %}
+            </div>
+            {% if recent_assets %}
+              <div class="list-stack">
+                {% for asset in recent_assets %}
+                  <div class="list-item">
+                    <strong>{{ asset.asset_id }} - {{ asset.name }}</strong>
+                    <span class="muted">{{ asset.category.name }} in {{ asset.current_location.department.name }}</span>
+                    <div class="inline-meta">
+                      <span class="status {{ asset.status }}">{{ asset.get_status_display }}</span>
+                      <span class="status">{{ asset.get_condition_display }}</span>
+                    </div>
+                  </div>
+                {% endfor %}
+              </div>
+            {% elif not inventory_search_active %}
+              <div class="empty-state">
+                <h3>Search to load inventory</h3>
+                <p>Use the inventory search bar to load matching inventory records here instead of preloading the full list.</p>
+              </div>
+            {% else %}
+              <div class="empty-state">
+                <h3>No assets yet</h3>
+                <p>Asset records will appear here once inventory is registered.</p>
+              </div>
+            {% endif %}
+          </div>
+
+          <div class="panel">
+            <p class="eyebrow">Department Spread</p>
+            <h2>Asset distribution snapshot</h2>
+            {% if department_distribution %}
+              <table>
+                <thead>
+                  <tr>
+                    <th>Department</th>
+                    <th>Code</th>
+                    <th>Total Assets</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for row in department_distribution %}
+                    <tr>
+                      <td>{{ row.current_location__department__name }}</td>
+                      <td>{{ row.current_location__department__code }}</td>
+                      <td>{{ row.total }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            {% elif not inventory_search_active %}
+              <div class="empty-state">
+                <h3>Search to load distribution</h3>
+                <p>Run an inventory search first to summarize where the matching assets are currently distributed.</p>
+              </div>
+            {% else %}
+              <div class="empty-state">
+                <h3>No distribution data</h3>
+                <p>Department totals will appear after assets are created and assigned locations.</p>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      </section>
+
+      {% if can_view_activity_overview %}
+        <section class="dashboard-section {% if default_dashboard_section != 'activity-overview' %}is-hidden{% endif %}" id="activity-overview" data-dashboard-section="activity-overview">
+          <div class="dashboard-section-head">
+            <div class="dashboard-section-copy">
+              <p class="eyebrow">Activity Overview</p>
+              {% if user_role == "Lab Technician" %}
+                <h2>Lab issue desk and repair activity</h2>
+                <p>Track check-in and check-out activity alongside equipment repair and service updates.</p>
+              {% else %}
+                <h2>Allocations and maintenance</h2>
+                <p>Review recent assignment and service activity in one place.</p>
+              {% endif %}
+            </div>
+          </div>
+
+          <form method="get" class="filters" style="margin-bottom: 1rem;">
+            <div style="flex: 1 1 320px;">
+              <input
+                name="activity_search"
+                type="search"
+                placeholder="Search activity by asset, user, purpose, technician, or maintenance details"
+                value="{{ activity_search }}"
+              >
+            </div>
+            <button type="submit">Search Activity</button>
+            {% if activity_search %}
+              <a class="button-link secondary" href="{% url 'assets:dashboard' %}#activity-overview">Clear Search</a>
+            {% endif %}
+          </form>
+
+          <div class="dashboard-grid-two">
+            <div class="panel">
+              <p class="eyebrow">Allocations</p>
+              <h2>Recent assignment activity</h2>
+              {% if recent_allocations %}
+                <div class="list-stack">
+                  {% for allocation in recent_allocations %}
+                    <div class="list-item">
+                      <strong>{{ allocation.asset.asset_id }} - {{ allocation.asset.name }}</strong>
+                      <span class="muted">
+                        {% if allocation.allocated_to %}
+                          Assigned to {{ allocation.allocated_to.username }}
+                        {% else %}
+                          Assigned to {{ allocation.allocated_to_lab }}
+                        {% endif %}
+                      </span>
+                      <div class="inline-meta">
+                        <span class="status {{ allocation.status }}">{{ allocation.get_status_display }}</span>
+                        <span class="chip">Issued {{ allocation.allocation_date }}</span>
+                        <span class="chip">Return {{ allocation.expected_return_date }}</span>
+                      </div>
+                    </div>
+                  {% endfor %}
+                </div>
+              {% elif not activity_search_active %}
+                <div class="empty-state">
+                  <h3>Search to load allocation activity</h3>
+                  <p>Use the activity search bar to load matching check-out and assignment records.</p>
+                </div>
+              {% else %}
+                <div class="empty-state">
+                  <h3>No allocations yet</h3>
+                  <p>Assignment records will appear here when assets start moving to staff or labs.</p>
+                </div>
+              {% endif %}
+            </div>
+
+            <div class="panel">
+              <p class="eyebrow">Maintenance</p>
+              <h2>Service and repair activity</h2>
+              {% if recent_maintenance %}
+                <div class="list-stack">
+                  {% for item in recent_maintenance %}
+                    <div class="list-item">
+                      <strong>{{ item.asset.asset_id }} - {{ item.asset.name }}</strong>
+                      <span class="muted">{{ item.description }}</span>
+                      <div class="inline-meta">
+                        <span class="status {{ item.status }}">{{ item.get_status_display }}</span>
+                        <span class="chip">{{ item.get_maintenance_type_display }}</span>
+                        <span class="chip">Scheduled {{ item.scheduled_date }}</span>
+                      </div>
+                    </div>
+                  {% endfor %}
+                </div>
+              {% elif not activity_search_active %}
+                <div class="empty-state">
+                  <h3>Search to load maintenance activity</h3>
+                  <p>Use the activity search bar to load related repair, service, and fault records.</p>
+                </div>
+              {% else %}
+                <div class="empty-state">
+                  <h3>No maintenance records yet</h3>
+                  <p>Corrective and preventive maintenance entries will show up here.</p>
+                </div>
+              {% endif %}
+            </div>
+          </div>
+        </section>
+      {% endif %}
+
+      <section class="dashboard-section {% if default_dashboard_section != 'department-assets' %}is-hidden{% endif %}" id="department-assets" data-dashboard-section="department-assets">
+        <div class="dashboard-section-head">
+          <div class="dashboard-section-copy">
+            <p class="eyebrow">Department Assets</p>
+            {% if user_role == "Lab Technician" %}
+              <h2>Assigned lab assets</h2>
+              <p>Review equipment within your visible labs, confirm condition, and follow up on items that need attention.</p>
+            {% else %}
+              <h2>Department assets</h2>
+              <p>Search, review, and request assets from your visible inventory.</p>
+            {% endif %}
+          </div>
+          <div class="inline-meta">
+            <span class="chip">{% if user_department %}{{ user_department.name }}{% else %}Faculty-wide view{% endif %}</span>
+            <span class="chip">{{ department_assets_total }} result{{ department_assets_total|pluralize }}</span>
+          </div>
+        </div>
+
+        <form method="get" class="filters" style="margin-bottom: 1rem;">
+          <div style="flex: 1 1 320px;">
+            <input
+              name="asset_search"
+              type="search"
+              placeholder="Search by asset ID, name, barcode, location, or category"
+              value="{{ asset_search }}"
+            >
+          </div>
+          <button type="submit">Search Assets</button>
+          {% if asset_search %}
+            <a class="button-link secondary" href="{% url 'assets:dashboard' %}#department-assets">Clear Search</a>
+          {% endif %}
+        </form>
+
+        {% if department_assets %}
           <table>
             <thead>
               <tr>
-                <th>Department</th>
-                <th>Code</th>
-                <th>Total Assets</th>
+                <th>Asset</th>
+                <th>Category</th>
+                <th>Status</th>
+                <th>Condition</th>
+                <th>Location</th>
+                <th>Action</th>
               </tr>
             </thead>
             <tbody>
-              {% for row in department_distribution %}
+              {% for asset in department_assets %}
                 <tr>
-                  <td>{{ row.current_location__department__name }}</td>
-                  <td>{{ row.current_location__department__code }}</td>
-                  <td>{{ row.total }}</td>
+                  <td>
+                    <strong>{{ asset.asset_id }}</strong><br>
+                    <span class="muted">{{ asset.name }}</span>
+                  </td>
+                  <td>{{ asset.category.name }}</td>
+                  <td><span class="status {{ asset.status }}">{{ asset.get_status_display }}</span></td>
+                  <td><span class="status">{{ asset.get_condition_display }}</span></td>
+                  <td>{{ asset.current_location }}</td>
+                  <td>
+                    {% if request_status_by_asset|get_item:asset.id == "pending" %}
+                      <button class="cta-button is-disabled" type="button" disabled>Requested</button>
+                    {% elif not can_request_assets %}
+                      {% if asset_workspace_permissions.can_edit %}
+                        <a class="button-link secondary" href="{% url 'assets:workspace_resource' resource='assets' %}?edit={{ asset.id }}&search={{ asset.asset_id|urlencode }}">Manage Asset</a>
+                      {% else %}
+                        <a class="button-link secondary" href="{% url 'assets:workspace_resource' resource='assets' %}?search={{ asset.asset_id|urlencode }}">Review Asset</a>
+                      {% endif %}
+                    {% elif asset.status == "available" %}
+                      {% with request_values=request_form_values_by_asset|get_item:asset.id request_errors=request_form_errors_by_asset|get_item:asset.id %}
+                        <details class="request-action-panel" {% if request_form_asset_id == asset.id %}open{% endif %}>
+                          <summary class="request-action-summary">Request</summary>
+                          <form method="post" action="{% url 'assets:request_asset' asset.id %}" class="request-inline-form">
+                            {% csrf_token %}
+                            <input type="hidden" name="asset_search" value="{{ asset_search }}">
+
+                            {% if request_errors.non_field_errors %}
+                              <ul class="form-error-list">
+                                {% for error in request_errors.non_field_errors %}
+                                  <li>{{ error }}</li>
+                                {% endfor %}
+                              </ul>
+                            {% endif %}
+
+                            <div class="request-field-grid">
+                              <div class="form-field">
+                                <label for="request-reason-{{ asset.id }}">Reason for request</label>
+                                <textarea id="request-reason-{{ asset.id }}" name="message" rows="3" required>{{ request_values.message }}</textarea>
+                                {% if request_errors.message %}
+                                  <ul class="form-error-list">
+                                    {% for error in request_errors.message %}
+                                      <li>{{ error }}</li>
+                                    {% endfor %}
+                                  </ul>
+                                {% endif %}
+                              </div>
+
+                              <div class="form-field">
+                                <label for="request-start-{{ asset.id }}">When you need it</label>
+                                <input id="request-start-{{ asset.id }}" type="datetime-local" name="requested_start_at" value="{{ request_values.requested_start_at }}" required>
+                                {% if request_errors.requested_start_at %}
+                                  <ul class="form-error-list">
+                                    {% for error in request_errors.requested_start_at %}
+                                      <li>{{ error }}</li>
+                                    {% endfor %}
+                                  </ul>
+                                {% endif %}
+                              </div>
+
+                              <div class="form-field">
+                                <label for="request-end-{{ asset.id }}">When you will return it</label>
+                                <input id="request-end-{{ asset.id }}" type="datetime-local" name="requested_end_at" value="{{ request_values.requested_end_at }}" required>
+                                {% if request_errors.requested_end_at %}
+                                  <ul class="form-error-list">
+                                    {% for error in request_errors.requested_end_at %}
+                                      <li>{{ error }}</li>
+                                    {% endfor %}
+                                  </ul>
+                                {% endif %}
+                              </div>
+
+                              <div class="form-field">
+                                <label for="request-location-{{ asset.id }}">Place of use</label>
+                                <input id="request-location-{{ asset.id }}" type="text" name="usage_location" value="{{ request_values.usage_location }}" placeholder="Office, lab, classroom, or venue" required>
+                                {% if request_errors.usage_location %}
+                                  <ul class="form-error-list">
+                                    {% for error in request_errors.usage_location %}
+                                      <li>{{ error }}</li>
+                                    {% endfor %}
+                                  </ul>
+                                {% endif %}
+                              </div>
+                            </div>
+
+                            <button class="cta-button" type="submit">Submit Request</button>
+                          </form>
+                        </details>
+                      {% endwith %}
+                    {% else %}
+                      <button class="cta-button is-disabled" type="button" disabled>Request</button>
+                    {% endif %}
+                  </td>
                 </tr>
               {% endfor %}
             </tbody>
           </table>
+        {% elif not department_assets_search_active %}
+          <div class="empty-state">
+            <h3>Search for an asset first</h3>
+            <p>Use the search bar to load matching assets by name, asset ID, category, barcode, or location.</p>
+          </div>
         {% else %}
           <div class="empty-state">
-            <h3>No distribution data</h3>
-            <p>Department totals will appear after assets are created and assigned locations.</p>
+            <h3>No department assets available</h3>
+            {% if asset_search %}
+              <p>No assets matched your search. Try a different asset ID, name, category, barcode, or location.</p>
+            {% else %}
+              <p>Once assets are registered under your department, they will appear here for viewing and requests.</p>
+            {% endif %}
           </div>
         {% endif %}
-      </div>
-    </div>
-  </div>
+      </section>
 
-  <div class="section">
-    <div class="grid two">
-      <div class="panel">
-        <p class="eyebrow">Allocations</p>
-        <h2>Recent assignment activity</h2>
-        {% if recent_allocations %}
-          <div class="list-stack">
-            {% for allocation in recent_allocations %}
-              <div class="list-item">
-                <strong>{{ allocation.asset.asset_id }} - {{ allocation.asset.name }}</strong>
-                <span class="muted">
-                  {% if allocation.allocated_to %}
-                    Assigned to {{ allocation.allocated_to.username }}
-                  {% else %}
-                    Assigned to {{ allocation.allocated_to_lab }}
-                  {% endif %}
-                </span>
-                <div class="inline-meta">
-                  <span class="status {{ allocation.status }}">{{ allocation.get_status_display }}</span>
-                  <span class="chip">Issued {{ allocation.allocation_date }}</span>
-                  <span class="chip">Return {{ allocation.expected_return_date }}</span>
-                </div>
+      {% if can_view_reports %}
+        <section class="dashboard-section {% if default_dashboard_section != 'reports' %}is-hidden{% endif %}" id="reports" data-dashboard-section="reports">
+          <div class="dashboard-section-head">
+            <div class="dashboard-section-copy">
+              <p class="eyebrow">Reports</p>
+              <h2>Generate and review system reports</h2>
+              <p>Open the available report views from your dashboard without going through a separate admin menu.</p>
+            </div>
+            <span class="chip">{{ report_links|length }} report{{ report_links|length|pluralize }}</span>
+          </div>
+
+          <div class="grid three">
+            {% for link in report_links %}
+              <div class="panel">
+                <p class="eyebrow">{{ link.action_label }}</p>
+                <h3>{{ link.label }}</h3>
+                <p>{{ link.description }}</p>
+                <a class="button-link secondary" href="{{ link.url }}">{{ link.action_label }}</a>
               </div>
             {% endfor %}
           </div>
-        {% else %}
-          <div class="empty-state">
-            <h3>No allocations yet</h3>
-            <p>Assignment records will appear here when assets start moving to staff or labs.</p>
-          </div>
-        {% endif %}
-      </div>
+        </section>
+      {% endif %}
 
-      <div class="panel">
-        <p class="eyebrow">Maintenance</p>
-        <h2>Service and repair activity</h2>
-        {% if recent_maintenance %}
-          <div class="list-stack">
-            {% for item in recent_maintenance %}
-              <div class="list-item">
-                <strong>{{ item.asset.asset_id }} - {{ item.asset.name }}</strong>
-                <span class="muted">{{ item.description }}</span>
-                <div class="inline-meta">
-                  <span class="status {{ item.status }}">{{ item.get_status_display }}</span>
-                  <span class="chip">{{ item.get_maintenance_type_display }}</span>
-                  <span class="chip">Scheduled {{ item.scheduled_date }}</span>
-                </div>
+      {% if can_view_user_asset_lookup %}
+        <section class="dashboard-section {% if default_dashboard_section != 'user-asset-lookup' %}is-hidden{% endif %}" id="user-asset-lookup" data-dashboard-section="user-asset-lookup">
+          <div class="dashboard-section-head">
+            <div class="dashboard-section-copy">
+              <p class="eyebrow">User Asset Lookup</p>
+              <h2>Search a user and review everything currently assigned to them</h2>
+              <p>Use familiar user details to find a person quickly, then review all active or overdue asset assignments linked to their account.</p>
+            </div>
+            <span class="chip">Admin tool</span>
+          </div>
+
+          <form method="get" class="filters" style="margin-bottom: 1rem;">
+            <div style="flex: 1 1 320px;">
+              <input
+                name="user_asset_search"
+                type="search"
+                placeholder="Search by username, name, email, employee ID, student ID, or department"
+                value="{{ user_asset_lookup.query }}"
+              >
+            </div>
+            <button type="submit">Search User</button>
+            {% if user_asset_lookup.query %}
+              <a class="button-link secondary" href="{% url 'assets:dashboard' %}#user-asset-lookup">Clear Search</a>
+            {% endif %}
+          </form>
+
+          {% if user_asset_lookup.searched %}
+            {% if user_asset_lookup.results %}
+              <div class="grid two">
+                {% for result in user_asset_lookup.results %}
+                  <article class="panel">
+                    <div class="dashboard-section-head">
+                      <div class="dashboard-section-copy">
+                        <h3>{{ result.display_name }}</h3>
+                        <p>{{ result.user.username }} · {{ result.identity_label }}</p>
+                      </div>
+                      <div class="inline-meta">
+                        <span class="chip">{{ result.allocation_count }} assigned asset{{ result.allocation_count|pluralize }}</span>
+                        <a class="button-link secondary" href="{% url 'assets:workspace_resource' resource='allocations' %}?recipient=user&user={{ result.user.id }}">Allocate Asset</a>
+                      </div>
+                    </div>
+
+                    <div class="request-detail-grid" style="margin-bottom: 0.8rem;">
+                      <div class="request-detail">
+                        <span class="request-detail-label">Department</span>
+                        <span class="request-detail-value">{{ result.department_name }}</span>
+                      </div>
+                      <div class="request-detail">
+                        <span class="request-detail-label">Role</span>
+                        <span class="request-detail-value">{{ result.role_label }}</span>
+                      </div>
+                    </div>
+
+                    {% if result.allocations %}
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Asset</th>
+                            <th>Category</th>
+                            <th>Location</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {% for allocation in result.allocations %}
+                            <tr>
+                              <td>
+                                <strong>{{ allocation.asset.asset_id }}</strong><br>
+                                <span class="muted">{{ allocation.asset.name }}</span>
+                              </td>
+                              <td>{{ allocation.asset.category.name }}</td>
+                              <td>{{ allocation.asset.current_location }}</td>
+                              <td><span class="status {{ allocation.status }}">{{ allocation.get_status_display }}</span></td>
+                              <td>
+                                <form method="post" action="{% url 'assets:mark_user_asset_returned' allocation.id %}">
+                                  {% csrf_token %}
+                                  <input type="hidden" name="user_asset_search" value="{{ user_asset_lookup.query }}">
+                                  <button type="submit" class="secondary">Mark Returned</button>
+                                </form>
+                              </td>
+                            </tr>
+                          {% endfor %}
+                        </tbody>
+                      </table>
+                    {% else %}
+                      <div class="empty-state">
+                        <h3>No active assignments</h3>
+                        <p>This user does not currently have any assets assigned to their account.</p>
+                      </div>
+                    {% endif %}
+                  </article>
+                {% endfor %}
+              </div>
+            {% else %}
+              <div class="empty-state">
+                <h3>No matching users found</h3>
+                <p>Try a username, full name, email address, employee ID, student ID, or department.</p>
+              </div>
+            {% endif %}
+          {% else %}
+            <div class="empty-state">
+              <h3>Search to load assigned assets</h3>
+              <p>Enter a user detail above to review the assets currently assigned to that account.</p>
+            </div>
+          {% endif %}
+        </section>
+      {% endif %}
+
+      {% if show_department_category_breakdown %}
+        <section class="dashboard-section {% if default_dashboard_section != 'category-control' %}is-hidden{% endif %}" id="category-control" data-dashboard-section="category-control">
+          <div class="dashboard-section-head">
+            <div class="dashboard-section-copy">
+              <p class="eyebrow">Category Control</p>
+              <h2>Manage department assets by category</h2>
+              <p>Track category totals by availability and lifecycle state, then review the matching assets below.</p>
+            </div>
+            <div class="inline-meta">
+              <span class="chip">{{ department_category_breakdown|length }} categor{{ department_category_breakdown|length|pluralize:"y,ies" }}</span>
+              <span class="chip">{{ category_assets_total }} asset{{ category_assets_total|pluralize }}</span>
+            </div>
+          </div>
+
+          <form method="get" class="filters" style="margin-bottom: 1rem;">
+            <div style="flex: 1 1 320px;">
+              <input
+                name="category_search"
+                type="search"
+                placeholder="Search category assets by asset ID, name, barcode, location, or category"
+                value="{{ category_search }}"
+              >
+            </div>
+            <button type="submit">Search Categories</button>
+            {% if category_search %}
+              <a class="button-link secondary" href="{% url 'assets:dashboard' %}#category-control">Clear Search</a>
+            {% endif %}
+          </form>
+
+          {% if department_category_breakdown %}
+            <table>
+              <thead>
+                <tr>
+                  <th>Category</th>
+                  <th>Available</th>
+                  <th>Allocated</th>
+                  <th>Maintenance</th>
+                  <th>Disposed</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in department_category_breakdown %}
+                  <tr>
+                    <td>
+                      <strong>{{ row.category__name }}</strong>
+                    </td>
+                    <td>{{ row.available_count }}</td>
+                    <td>{{ row.allocated_count }}</td>
+                    <td>{{ row.maintenance_count }}</td>
+                    <td>{{ row.disposed_count }}</td>
+                    <td><strong>{{ row.total }}</strong></td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+
+            <div class="dashboard-section-head" style="margin-top: 1.5rem;">
+              <div class="dashboard-section-copy">
+                <p class="eyebrow">Matching Assets</p>
+                <h3>Assets in this category search</h3>
+                <p>Review the department assets that matched your category search.</p>
+              </div>
+            </div>
+
+            <table>
+              <thead>
+                <tr>
+                  <th>Asset</th>
+                  <th>Category</th>
+                  <th>Status</th>
+                  <th>Condition</th>
+                  <th>Location</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for asset in category_assets %}
+                  <tr>
+                    <td>
+                      <strong>{{ asset.asset_id }}</strong><br>
+                      <span class="muted">{{ asset.name }}</span>
+                    </td>
+                    <td>{{ asset.category.name }}</td>
+                    <td><span class="status {{ asset.status }}">{{ asset.get_status_display }}</span></td>
+                    <td><span class="status">{{ asset.get_condition_display }}</span></td>
+                    <td>{{ asset.current_location }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          {% elif not category_search_active %}
+            <div class="empty-state">
+              <h3>Search to load category totals and assets</h3>
+              <p>Use the category search bar to load matching department assets and summarize them by category.</p>
+            </div>
+          {% else %}
+            <div class="empty-state">
+              <h3>No category matches found</h3>
+              <p>No department assets matched your category search. Try a different asset ID, name, category, barcode, or location.</p>
+            </div>
+          {% endif %}
+        </section>
+      {% endif %}
+
+      {% if role_workspace_links %}
+        <section class="dashboard-section {% if default_dashboard_section != 'role-workspace' %}is-hidden{% endif %}" id="role-workspace" data-dashboard-section="role-workspace">
+          <div class="dashboard-section-head">
+            <div class="dashboard-section-copy">
+              <p class="eyebrow">Workspace Tools</p>
+              {% if user_role == "Lab Technician" %}
+                <h2>Lab technician tools</h2>
+                <p>Use these tools by default to manage lab assets, check equipment in and out, and follow repair requests.</p>
+              {% else %}
+                <h2>What you can do in the system</h2>
+                <p>Your role-based operational tools are available here by default from the dashboard.</p>
+              {% endif %}
+            </div>
+            <span class="chip">{{ role_workspace_links|length }} tool{{ role_workspace_links|length|pluralize }}</span>
+          </div>
+
+          <div class="grid three">
+            {% for link in role_workspace_links %}
+              <div class="panel">
+                <p class="eyebrow">{{ link.action_label }}</p>
+                <h3>{{ link.label }}</h3>
+                <p>{{ link.description }}</p>
+                <a class="button-link secondary" href="{{ link.url }}">{{ link.action_label }}</a>
               </div>
             {% endfor %}
           </div>
-        {% else %}
-          <div class="empty-state">
-            <h3>No maintenance records yet</h3>
-            <p>Corrective and preventive maintenance entries will show up here.</p>
-          </div>
-        {% endif %}
-      </div>
+        </section>
+      {% endif %}
     </div>
-  </div>
-
-  <div class="section">
-    <div class="grid two">
-      <div class="panel">
-        <p class="eyebrow">Requests</p>
-        <h2>Your recent asset requests</h2>
-        {% if recent_requests %}
-          <div class="request-summary">
-            {% for asset_request in recent_requests %}
-              <div class="request-card">
-                <strong>{{ asset_request.asset.asset_id }} - {{ asset_request.asset.name }}</strong>
-                <div class="inline-meta">
-                  <span class="status {{ asset_request.status }}">{{ asset_request.get_status_display }}</span>
-                  <span class="chip">Submitted {{ asset_request.requested_at|date:"M d, Y H:i" }}</span>
-                  {% if asset_request.reviewed_at %}
-                    <span class="chip">Reviewed {{ asset_request.reviewed_at|date:"M d, Y H:i" }}</span>
-                  {% endif %}
-                </div>
-                {% if asset_request.decline_reason %}
-                  <p><strong>Decline reason:</strong> {{ asset_request.decline_reason }}</p>
-                {% elif asset_request.status == "approved" %}
-                  <p>Your request has been approved by the admin team.</p>
-                {% else %}
-                  <p>Your request is waiting for admin review.</p>
-                {% endif %}
-              </div>
-            {% endfor %}
-          </div>
-        {% else %}
-          <div class="empty-state">
-            <h3>No requests yet</h3>
-            <p>Once you request an available asset, the status will appear here.</p>
-          </div>
-        {% endif %}
-      </div>
-
-      <div class="panel">
-        <p class="eyebrow">Guidance</p>
-        <h2>How requests work</h2>
-        <div class="list-stack">
-          <div class="list-item">
-            <strong>1. Find an available asset</strong>
-            <span class="muted">Only assets visible to your department can be requested from this dashboard.</span>
-          </div>
-          <div class="list-item">
-            <strong>2. Submit your request</strong>
-            <span class="muted">A pending state appears immediately so you know the request was received.</span>
-          </div>
-          <div class="list-item">
-            <strong>3. Wait for review</strong>
-            <span class="muted">If a request is declined, the admin-provided reason is shown here for clarity.</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="section" id="department-assets">
-    <div class="toolbar">
-      <div>
-        <p class="eyebrow">Department Assets</p>
-        <h2>Assets visible in your department</h2>
-      </div>
-      <div class="chip">
-        {% if user_department %}{{ user_department.name }}{% else %}Faculty-wide view{% endif %}
-      </div>
-    </div>
-
-    {% if department_assets %}
-      <table>
-        <thead>
-          <tr>
-            <th>Asset</th>
-            <th>Category</th>
-            <th>Status</th>
-            <th>Condition</th>
-            <th>Location</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for asset in department_assets %}
-            <tr>
-              <td>
-                <strong>{{ asset.asset_id }}</strong><br>
-                <span class="muted">{{ asset.name }}</span>
-              </td>
-              <td>{{ asset.category.name }}</td>
-              <td><span class="status {{ asset.status }}">{{ asset.get_status_display }}</span></td>
-              <td><span class="status">{{ asset.get_condition_display }}</span></td>
-              <td>{{ asset.current_location }}</td>
-              <td>
-                {% if request_status_by_asset|get_item:asset.id == "pending" %}
-                  <button class="cta-button is-disabled" type="button" disabled>Requested</button>
-                {% elif asset.status == "available" %}
-                  <form method="post" action="{% url 'assets:request_asset' asset.id %}">
-                    {% csrf_token %}
-                    <button class="cta-button" type="submit">Request</button>
-                  </form>
-                {% else %}
-                  <button class="cta-button is-disabled" type="button" disabled>Request</button>
-                {% endif %}
-              </td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    {% else %}
-      <div class="empty-state">
-        <h3>No department assets available</h3>
-        <p>Once assets are registered under your department, they will appear here for viewing and requests.</p>
-      </div>
-    {% endif %}
   </div>
 </section>
+
+<script>
+  (() => {
+    const dashboardMain = document.querySelector('[data-default-dashboard-section]');
+    if (!dashboardMain) return;
+
+    const sections = Array.from(document.querySelectorAll('[data-dashboard-section]'));
+    const sidebarLinks = Array.from(document.querySelectorAll('[data-dashboard-target]'));
+    const defaultSection = dashboardMain.dataset.defaultDashboardSection || 'personal-overview';
+
+    function showSection(sectionId) {
+      const targetSection = sections.find((section) => section.dataset.dashboardSection === sectionId);
+      const resolvedSectionId = targetSection ? sectionId : defaultSection;
+
+      sections.forEach((section) => {
+        section.classList.toggle('is-hidden', section.dataset.dashboardSection !== resolvedSectionId);
+      });
+
+      sidebarLinks.forEach((link) => {
+        link.classList.toggle('is-active', link.dataset.dashboardTarget === resolvedSectionId);
+      });
+    }
+
+    function showSectionFromHash() {
+      const hashSection = window.location.hash.replace('#', '');
+      showSection(hashSection || defaultSection);
+    }
+
+    function focusNotificationAssetRow() {
+      const focusAssetId = new URL(window.location.href).searchParams.get('focus_asset_id');
+      if (!focusAssetId) return;
+
+      const focusedRow = document.getElementById(`asset-care-${focusAssetId}`);
+      if (!focusedRow) return;
+
+      focusedRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    window.addEventListener('hashchange', showSectionFromHash);
+    showSectionFromHash();
+    focusNotificationAssetRow();
+  })();
+</script>
 {% endblock %}

@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Help Center | FASSETS{% endblock %}
+
+{% block content %}
+<section class="page-card">
+  <div class="section">
+    <div class="toolbar">
+      <div>
+        <p class="eyebrow">Help Center</p>
+        <h1>Search task help built around the way people actually use the system</h1>
+        <p>Find focused guidance for the actions your current account can actually perform, without wading through instructions meant for other roles.</p>
+      </div>
+      <div class="inline-meta">
+        <span class="chip">Role: {{ help_user_role }}</span>
+        <span class="chip">{{ help_topics_count }} topic{{ help_topics_count|pluralize }}</span>
+        {% if user.is_authenticated %}
+          <a class="button-link secondary" href="{% url 'assets:dashboard' %}">Back To Dashboard</a>
+        {% else %}
+          <a class="button-link secondary" href="{% url 'login' %}">Sign In</a>
+        {% endif %}
+      </div>
+    </div>
+
+    <form method="get" class="filters" style="margin-bottom: 1rem;">
+      <div style="flex: 1 1 360px;">
+        <input
+          name="q"
+          type="search"
+          placeholder="Search your available help by task, role, report, maintenance, allocation, or notification"
+          value="{{ help_query }}"
+        >
+      </div>
+      <button type="submit">Search Help</button>
+      {% if help_query %}
+        <a class="button-link secondary" href="{% url 'assets:help_center' %}">Clear Search</a>
+      {% endif %}
+    </form>
+
+    {% if help_query %}
+      <div class="panel" style="margin-bottom: 1rem;">
+        <p class="eyebrow">Search Results</p>
+        <h2>Results for "{{ help_query }}"</h2>
+        <p>Use the task cards below to open the most relevant part of the system from the help topics available to your current role.</p>
+      </div>
+    {% else %}
+      <div class="grid three" style="margin-bottom: 1rem;">
+        {% for topic in featured_help_topics %}
+          <article class="panel">
+            <p class="eyebrow">{{ topic.category }}</p>
+            <h3>{{ topic.title }}</h3>
+            <p>{{ topic.summary }}</p>
+            <a class="button-link secondary" href="#{{ topic.slug }}">Jump To Topic</a>
+          </article>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    {% if help_topics %}
+      <div class="grid two">
+        {% for topic in help_topics %}
+          <article class="panel" id="{{ topic.slug }}">
+            <p class="eyebrow">{{ topic.category }}</p>
+            <h2>{{ topic.title }}</h2>
+            <p>{{ topic.summary }}</p>
+
+            <div class="inline-meta" style="margin-bottom: 1rem;">
+              <span class="chip">{{ topic.audience }}</span>
+              <span class="chip">{{ topic.availability }}</span>
+            </div>
+
+            <div class="list-stack" style="margin-bottom: 1rem;">
+              {% for step in topic.steps %}
+                <div class="list-item">
+                  <strong>Step {{ forloop.counter }}</strong>
+                  <span class="muted">{{ step }}</span>
+                </div>
+              {% endfor %}
+            </div>
+
+            <a class="button-link secondary" href="{{ topic.action_url }}">{{ topic.action_label }}</a>
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty-state">
+        <h3>No help topics matched that search</h3>
+        <p>Try words like asset request, maintenance, notifications, user assets, reports, or workspace tools.</p>
+      </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

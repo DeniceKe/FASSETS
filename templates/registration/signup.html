@@ -3,18 +3,13 @@
 
 {% block content %}
 <section class="login-shell">
+  <style>
+    .login-layout {
+      grid-template-columns: minmax(0, 1fr);
+      width: min(640px, 100%);
+    }
+  </style>
   <div class="login-layout">
-    <div class="login-intro">
-      <p class="eyebrow" style="color: rgba(255,255,255,0.78);">Create Account</p>
-      <h1>Sign up to access assets registered in your department.</h1>
-      <p>Students and staff can create their accounts with department details so asset visibility stays scoped to the right unit.</p>
-      <div class="inline-meta">
-        <span class="pill" style="background: rgba(255,255,255,0.12); color: #fff; border-color: rgba(255,255,255,0.18);">Department-based access</span>
-        <span class="pill" style="background: rgba(255,255,255,0.12); color: #fff; border-color: rgba(255,255,255,0.18);">Student or staff profile</span>
-        <span class="pill" style="background: rgba(255,255,255,0.12); color: #fff; border-color: rgba(255,255,255,0.18);">Asset requests</span>
-      </div>
-    </div>
-
     <div class="login-form-wrap">
       <p class="eyebrow">New User</p>
       <h2>Create your FASSETS account</h2>
@@ -43,7 +38,7 @@
         <button type="submit">Create Account</button>
       </form>
 
-      <div class="panel" style="margin-top: 18px;">
+      <div class="panel" style="margin-top: 12px;">
         <h3>Already registered?</h3>
         <p>Use your username and password to sign in.</p>
         <a class="button-link secondary" href="{% url 'login' %}">Back to Sign In</a>

@@ -4,10 +4,20 @@ from .models import (
     ROLE_ADMIN,
     ROLE_COD,
     ROLE_DEAN,
+    ROLE_INTERNAL_AUDITOR,
     ROLE_LAB_TECHNICIAN,
     ROLE_LECTURER,
 )
 
+
+ROLE_LABEL_MAP = {
+    ROLE_ADMIN: "Admin",
+    ROLE_DEAN: "Dean",
+    ROLE_COD: "COD",
+    ROLE_LECTURER: "Lecturer",
+    ROLE_LAB_TECHNICIAN: "Lab Technician",
+    ROLE_INTERNAL_AUDITOR: "Auditor",
+}
 
 ROLE_GROUP_MAP = {
     ROLE_ADMIN: "Admin",
@@ -15,6 +25,7 @@ ROLE_GROUP_MAP = {
     ROLE_COD: "COD",
     ROLE_LECTURER: "Lecturer",
     ROLE_LAB_TECHNICIAN: "Lab Technician",
+    ROLE_INTERNAL_AUDITOR: "Auditor",
 }
 
 LEGACY_GROUP_ROLE_MAP = {
@@ -30,7 +41,18 @@ LEGACY_GROUP_ROLE_MAP = {
     "lecturer": ROLE_LECTURER,
     "technician": ROLE_LAB_TECHNICIAN,
     "Lab Technician": ROLE_LAB_TECHNICIAN,
+    "Auditor": ROLE_INTERNAL_AUDITOR,
+    "internal_auditor": ROLE_INTERNAL_AUDITOR,
+    "Internal Auditor": ROLE_INTERNAL_AUDITOR,
+    "External Auditor": ROLE_INTERNAL_AUDITOR,
 }
+
+
+def get_role_label(role: str, default: str = "") -> str:
+    if not role:
+        return default
+
+    return ROLE_LABEL_MAP.get(role, role.replace("_", " ").title())
 
 
 def bootstrap_role_groups():

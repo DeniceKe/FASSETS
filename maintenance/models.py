@@ -51,6 +51,9 @@ class Maintenance(models.Model):
     def clean(self):
         super().clean()
 
+        if self.asset_id and self.asset.status == "disposed":
+            raise ValidationError("Disposed assets cannot be scheduled for maintenance.")
+
         if self.completed_date and self.completed_date < self.scheduled_date:
             raise ValidationError("Completed date cannot be earlier than the scheduled date.")
 
