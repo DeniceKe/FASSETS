@@ -57,6 +57,7 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
+    'accounts.middleware.InactiveSessionLogoutMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
@@ -157,6 +158,8 @@ MEDIA_ROOT = BASE_DIR / 'media'
 LOGIN_URL = '/accounts/login/'
 LOGIN_REDIRECT_URL = '/dashboard/'
 LOGOUT_REDIRECT_URL = '/accounts/login/'
+SESSION_INACTIVITY_TIMEOUT = int(os.environ.get("SESSION_INACTIVITY_TIMEOUT", "300"))
+SESSION_COOKIE_AGE = SESSION_INACTIVITY_TIMEOUT
 CSRF_FAILURE_VIEW = "accounts.views.csrf_failure"
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "no-reply@fassets.local")
 EMAIL_BACKEND = os.environ.get(

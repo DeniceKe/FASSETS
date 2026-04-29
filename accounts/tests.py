@@ -9,6 +9,7 @@ from django.utils import timezone
 from pathlib import Path
 import re
 import shutil
+import time
 
 from accounts.models import Department, Faculty
 from assets.models import Location
@@ -219,6 +220,36 @@ class LogoutViewTests(TestCase):
         response = self.client.post(reverse("logout"))
 
         self.assertRedirects(response, reverse("login"))
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+
+class SessionTimeoutTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="idleuser",
+            email="idle@example.com",
+            password="StrongPass123!",
+        )
+
+    def test_login_initializes_last_activity_timestamp(self):
+        response = self.client.post(
+            reverse("login"),
+            {"username": "idleuser", "password": "StrongPass123!"},
+        )
+
+        self.assertRedirects(response, "/dashboard/")
+        self.assertIn("last_activity_at", self.client.session)
+
+    def test_inactive_session_logs_user_out_after_five_minutes(self):
+        self.client.force_login(self.user)
+        session = self.client.session
+        session["last_activity_at"] = int(time.time()) - 301
+        session.save()
+
+        response = self.client.get(reverse("profile"), follow=True)
+
+        self.assertRedirects(response, f'{reverse("login")}?next={reverse("profile")}')
+        self.assertContains(response, "Your session expired after 5 minutes of inactivity. Please sign in again.")
         self.assertNotIn("_auth_user_id", self.client.session)
 
 

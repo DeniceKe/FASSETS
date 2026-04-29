@@ -438,9 +438,6 @@
         <div>
           <p class="fassets-eyebrow">Report Filters</p>
           <h3>Narrow the reports below</h3>
-          <p class="fassets-filter-hint" data-availability-filter-note {% if not ignore_related_activity_status_filters %}hidden{% endif %}>
-            {{ report_filter_notice|default:"Available assets ignore request and maintenance status filters." }}
-          </p>
         </div>
       </div>
 
@@ -939,7 +936,6 @@
     (() => {
       const assetStatusFilter = document.querySelector('[data-asset-status-filter]');
       const dependentStatusFilters = Array.from(document.querySelectorAll('[data-dependent-status-filter]'));
-      const availabilityFilterNote = document.querySelector('[data-availability-filter-note]');
       if (!assetStatusFilter || !dependentStatusFilters.length) return;
 
       function syncDependentStatusFilters() {
@@ -950,10 +946,6 @@
             field.value = '';
           }
         });
-
-        if (availabilityFilterNote) {
-          availabilityFilterNote.hidden = !ignoreActivityStatuses;
-        }
       }
 
       assetStatusFilter.addEventListener('change', syncDependentStatusFilters);

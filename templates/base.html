@@ -687,9 +687,22 @@
     }
 
     .profile-detail-grid {
-      display: grid;
+      display: flex;
+      flex-wrap: wrap;
       gap: 10px;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      align-items: flex-start;
+    }
+
+    .profile-detail-grid > * {
+      flex: 0 1 auto;
+      width: fit-content;
+      min-width: min(100%, 180px);
+      max-width: 100%;
+    }
+
+    .profile-detail-grid .list-item {
+      gap: 4px;
+      padding: 10px 12px;
     }
 
     .request-cancel-button {

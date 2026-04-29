@@ -30,7 +30,14 @@ class DashboardRequestTests(TestCase):
             room="101",
             room_type="office",
         )
-        other_location = Location.objects.create(
+        self.lab_location = Location.objects.create(
+            department=self.department,
+            building="Physical Science Complex",
+            floor="2",
+            room="Lab 2",
+            room_type="lab",
+        )
+        self.other_location = Location.objects.create(
             department=other_department,
             building="Bio Block",
             floor="2",
@@ -66,7 +73,7 @@ class DashboardRequestTests(TestCase):
             purchase_date=datetime.date(2026, 3, 1),
             purchase_cost=1000,
             supplier=self.supplier,
-            current_location=other_location,
+            current_location=self.other_location,
             created_by=self.admin,
         )
         self.user = User.objects.create_user("mathuser", password="pass12345Strong")
@@ -246,6 +253,69 @@ class DashboardRequestTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, reverse("assets:help_center"))
         self.assertContains(response, "Open Help Center")
+
+    def test_dashboard_renders_visual_insights_charts(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get("/dashboard/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Visual Insights")
+        self.assertContains(response, "Asset status distribution")
+        self.assertContains(response, "Top categories by asset volume")
+        self.assertContains(response, "Allocations and maintenance over time")
+        self.assertEqual(len(response.context["dashboard_status_chart"]), 4)
+        self.assertTrue(response.context["dashboard_category_chart"])
+        self.assertTrue(response.context["dashboard_department_chart"])
+        self.assertEqual(len(response.context["dashboard_activity_chart"]), 6)
+
+    def test_reports_center_can_export_pdf_and_excel(self):
+        self.client.force_login(self.admin)
+
+        pdf_response = self.client.get(
+            reverse("assets:reports_center"),
+            {"export": "pdf", "section": "inventory-report"},
+        )
+        excel_response = self.client.get(
+            reverse("assets:reports_center"),
+            {"export": "excel", "section": "inventory-report"},
+        )
+
+        self.assertEqual(pdf_response.status_code, 200)
+        self.assertEqual(pdf_response["Content-Type"], "application/pdf")
+        self.assertIn("inventory-report-", pdf_response["Content-Disposition"])
+        self.assertTrue(pdf_response.content.startswith(b"%PDF-1.4"))
+
+        self.assertEqual(excel_response.status_code, 200)
+        self.assertEqual(excel_response["Content-Type"], "application/vnd.ms-excel")
+        self.assertIn("inventory-report-", excel_response["Content-Disposition"])
+        self.assertIn(b'<?xml version="1.0"?>', excel_response.content)
+        self.assertIn(b"Inventory Report", excel_response.content)
+
+    def test_qr_tracking_page_and_label_views_resolve_visible_asset(self):
+        self.visible_asset.barcode = "MATH-TRACK-01"
+        self.visible_asset.save(update_fields=["barcode", "updated_at"])
+        self.client.force_login(self.user)
+
+        tracker_response = self.client.get(reverse("assets:asset_tracker"), {"code": "https://fassets.example/tracking/?code=MATH-TRACK-01"})
+        qr_image_response = self.client.get(reverse("assets:asset_qr_image", args=[self.visible_asset.id]))
+        qr_label_response = self.client.get(reverse("assets:asset_qr_label", args=[self.visible_asset.id]))
+
+        self.assertEqual(tracker_response.status_code, 200)
+        self.assertContains(tracker_response, "QR Tracking")
+        self.assertContains(tracker_response, self.visible_asset.asset_id)
+        self.assertContains(tracker_response, self.visible_asset.name)
+        self.assertEqual(tracker_response.context["normalized_tracking_code"], "MATH-TRACK-01")
+        self.assertEqual(tracker_response.context["tracked_asset"], self.visible_asset)
+
+        self.assertEqual(qr_image_response.status_code, 200)
+        self.assertEqual(qr_image_response["Content-Type"], "image/png")
+        self.assertTrue(qr_image_response.content.startswith(b"\x89PNG\r\n\x1a\n"))
+
+        self.assertEqual(qr_label_response.status_code, 200)
+        self.assertContains(qr_label_response, "FASSETS Asset Label")
+        self.assertContains(qr_label_response, self.visible_asset.asset_id)
+        self.assertContains(qr_label_response, reverse("assets:asset_tracker"))
 
     def test_authenticated_help_center_hides_topics_outside_user_role(self):
         self.client.force_login(self.user)
@@ -793,6 +863,9 @@ class DashboardRequestTests(TestCase):
         self.assertContains(response, "Generated Report")
         self.assertContains(response, "Department distribution")
         self.assertContains(response, "Maintenance records")
+        self.assertNotContains(response, "Generate reports by date, maintenance status, asset status, and condition")
+        self.assertNotContains(response, "Use one filter set to narrow the report tables below before printing or saving the report.")
+        self.assertNotContains(response, "Available assets ignore request and maintenance status filters.")
         self.assertContains(response, "Generated By")
         self.assertContains(response, admin_user.username)
         self.assertContains(response, "Generated On")
@@ -969,7 +1042,7 @@ class DashboardRequestTests(TestCase):
         self.assertIn("Asset Status: Available", response.context["report_active_filters_text"])
         self.assertNotIn("Request Status", response.context["report_active_filters_text"])
         self.assertNotIn("Maintenance Status", response.context["report_active_filters_text"])
-        self.assertContains(response, "Available assets ignore request and maintenance status filters.")
+        self.assertNotContains(response, "Available assets ignore request and maintenance status filters.")
         self.assertContains(response, "Available Tablet")
         self.assertEqual([asset.name for asset in response.context["inventory_assets"]], ["Available Tablet"])
         self.assertEqual([item.asset.name for item in response.context["asset_requests_report"]], ["Available Tablet"])
@@ -1732,7 +1805,7 @@ class DashboardRequestTests(TestCase):
         self.assertIn("Asset Status: Available", response.context["report_active_filters_text"])
         self.assertNotIn("Request Status", response.context["report_active_filters_text"])
         self.assertNotIn("Maintenance Status", response.context["report_active_filters_text"])
-        self.assertContains(response, "Available assets ignore request and maintenance status filters.")
+        self.assertNotContains(response, "Available assets ignore request and maintenance status filters.")
         self.assertEqual([asset.name for asset in response.context["inventory_assets"]], ["Available Recorder"])
         self.assertEqual([item.asset.name for item in response.context["asset_requests_report"]], ["Available Recorder"])
         self.assertEqual(list(response.context["maintenance_report"]), [])
@@ -1980,6 +2053,105 @@ class DashboardRequestTests(TestCase):
         self.assertContains(response, "codholder")
         self.assertContains(response, self.visible_asset.asset_id)
         self.assertContains(response, "Allocate Asset")
+
+    def test_cod_dashboard_lab_asset_lookup_finds_lab_inventory_and_lab_assigned_assets(self):
+        cod_user = User.objects.create_user("codlablookup", password="pass12345Strong")
+        cod_user.profile.department = self.department
+        cod_user.profile.role = "cod"
+        cod_user.profile.user_type = "staff"
+        cod_user.profile.employee_id = "COD-LAB-001"
+        cod_user.profile.staff_location = self.lab_location
+        cod_user.profile.save()
+
+        lab_inventory_asset = Asset.objects.create(
+            name="Lab Microscope",
+            category=self.category,
+            description="Available for lab use.",
+            purchase_date=datetime.date(2026, 3, 10),
+            purchase_cost=1400,
+            supplier=self.supplier,
+            current_location=self.lab_location,
+            created_by=self.admin,
+            status="available",
+        )
+        lab_assigned_asset = Asset.objects.create(
+            name="Lab Oscilloscope",
+            category=self.category,
+            description="Assigned to the electronics lab.",
+            purchase_date=datetime.date(2026, 3, 11),
+            purchase_cost=2200,
+            supplier=self.supplier,
+            current_location=self.location,
+            created_by=self.admin,
+            status="available",
+        )
+        Allocation.objects.create(
+            asset=lab_assigned_asset,
+            allocated_to_lab=self.lab_location,
+            allocated_by=self.admin,
+            allocation_type="permanent",
+            allocation_date=timezone.localdate(),
+            purpose="Dedicated lab use.",
+            condition_out=lab_assigned_asset.condition,
+            status="active",
+        )
+
+        self.client.force_login(cod_user)
+        response = self.client.get("/dashboard/", {"lab_asset_search": "PSC"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["default_dashboard_section"], "lab-asset-lookup")
+        self.assertContains(response, "Lab Asset Lookup")
+        self.assertContains(response, "Search Lab Assets")
+        self.assertContains(response, "Lab Microscope")
+        self.assertContains(response, "Lab Oscilloscope")
+        self.assertContains(response, "Held in lab inventory")
+        self.assertContains(response, "Assigned to")
+        self.assertContains(response, "Lab Assets")
+        self.assertEqual(len(response.context["lab_asset_lookup"]["results"]), 1)
+        self.assertEqual(response.context["lab_asset_lookup"]["results"][0]["asset_count"], 2)
+        self.assertEqual(
+            [item["asset"].name for item in response.context["lab_asset_lookup"]["results"][0]["assets"]],
+            ["Lab Microscope", "Lab Oscilloscope"],
+        )
+
+    def test_lab_technician_dashboard_lab_asset_lookup_is_available_from_account_dashboard(self):
+        technician = User.objects.create_user("labtechlookup", password="pass12345Strong")
+        technician.profile.department = self.department
+        technician.profile.role = "lab_technician"
+        technician.profile.user_type = "staff"
+        technician.profile.employee_id = "TECH-LAB-001"
+        technician.profile.staff_location = self.lab_location
+        technician.profile.save()
+
+        lab_asset = Asset.objects.create(
+            name="Chemistry Balance",
+            category=self.category,
+            description="Bench equipment for shared lab use.",
+            purchase_date=datetime.date(2026, 3, 12),
+            purchase_cost=1800,
+            supplier=self.supplier,
+            current_location=self.lab_location,
+            created_by=self.admin,
+            status="available",
+        )
+
+        self.client.force_login(technician)
+        response = self.client.get("/dashboard/", {"lab_asset_search": "balance"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["default_dashboard_section"], "lab-asset-lookup")
+        self.assertContains(response, "Lab Asset Lookup")
+        self.assertContains(response, "Search Lab Assets")
+        self.assertContains(response, "Chemistry Balance")
+        self.assertContains(response, lab_asset.asset_id)
+        self.assertContains(response, "Held in lab inventory")
+        self.assertContains(response, "Lab Assets")
+        self.assertTrue(response.context["can_view_lab_asset_lookup"])
+        self.assertEqual(
+            [item["asset"].name for item in response.context["lab_asset_lookup"]["results"][0]["assets"]],
+            ["Chemistry Balance"],
+        )
 
     def test_admin_help_center_links_to_user_asset_lookup(self):
         admin_user = User.objects.create_user("helpadmin", password="pass12345Strong")

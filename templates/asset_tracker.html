@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block title %}QR Tracking | FASSETS{% endblock %}
+{% block content %}
+<section class="page-card">
+  <style>
+    .qr-preview {
+      width: min(100%, 220px);
+      aspect-ratio: 1;
+      border-radius: 18px;
+      border: 1px solid rgba(148, 163, 184, 0.24);
+      background: #fff;
+      padding: 14px;
+      box-shadow: 0 18px 32px rgba(15, 23, 42, 0.08);
+    }
+
+    .tracker-metric-grid {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    }
+  </style>
+
+  <div class="section">
+    <div class="grid two">
+      <div>
+        <p class="eyebrow">QR Tracking</p>
+        <h1>Track an asset by scanning or entering its QR code or barcode value.</h1>
+        <p>Use the exact asset code printed beneath the label, scan a QR label into this field, or paste a supported tracking value to load the latest asset state.</p>
+        <div class="inline-meta">
+          <span class="chip">Department-aware access</span>
+          <span class="chip">QR label preview</span>
+          <span class="chip">Live asset status</span>
+        </div>
+      </div>
+      <div class="panel accent-panel">
+        <p class="eyebrow" style="color: rgba(255,255,255,0.72);">Tracking Workflow</p>
+        <h2 style="color: #fff;">Scan, confirm, and act from one screen</h2>
+        <p>Once an asset is found, you can confirm its location, open maintenance context, review assignment state, and print the QR label again when needed.</p>
+        <a class="button-link secondary" href="{% url 'assets:dashboard' %}#dashboard-charts">Back To Dashboard Charts</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="panel">
+      <form method="get" class="filters">
+        <div style="flex: 1 1 340px;">
+          <label for="tracking-code-input" class="eyebrow">Scan Or Enter Code</label>
+          <input id="tracking-code-input" type="search" name="code" value="{{ tracking_code }}" placeholder="Asset ID, barcode, or supported QR payload">
+        </div>
+        <button type="submit">Track Asset</button>
+        {% if tracking_code %}
+          <a class="button-link secondary" href="{% url 'assets:asset_tracker' %}">Clear</a>
+        {% endif %}
+      </form>
+      {% if normalized_tracking_code and normalized_tracking_code != tracking_code %}
+        <p class="muted" style="margin-top: 10px;">Resolved code: <strong>{{ normalized_tracking_code }}</strong></p>
+      {% endif %}
+      {% if tracking_error %}
+        <div class="alert" style="margin-top: 12px;">{{ tracking_error }}</div>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if tracked_asset %}
+    <div class="section">
+      <div class="grid two">
+        <div class="panel">
+          <p class="eyebrow">Matched Asset</p>
+          <h2>{{ tracked_asset.asset_id }} - {{ tracked_asset.name }}</h2>
+          <div class="inline-meta">
+            <span class="status {{ tracked_asset.status }}">{{ tracked_asset.get_status_display }}</span>
+            <span class="status">{{ tracked_asset.get_condition_display }}</span>
+            <span class="chip">{{ tracked_asset.category.name }}</span>
+          </div>
+          <div class="tracker-metric-grid" style="margin-top: 14px;">
+            <div class="list-item">
+              <strong>Department</strong>
+              <span class="muted">{{ tracked_asset.current_location.department.name }}</span>
+            </div>
+            <div class="list-item">
+              <strong>Current Location</strong>
+              <span class="muted">{{ tracked_asset.current_location.short_label }}</span>
+            </div>
+            <div class="list-item">
+              <strong>Barcode</strong>
+              <span class="muted">{{ tracked_asset.barcode|default:"-" }}</span>
+            </div>
+            <div class="list-item">
+              <strong>Purchase Date</strong>
+              <span class="muted">{{ tracked_asset.purchase_date|date:"M d, Y" }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel" style="display: grid; justify-items: center; gap: 12px;">
+          <p class="eyebrow">QR Label</p>
+          <img class="qr-preview" src="{% url 'assets:asset_qr_image' tracked_asset.id %}" alt="QR code for {{ tracked_asset.asset_id }}">
+          <p class="muted" style="text-align: center;">This label encodes <strong>{{ tracked_asset.asset_id }}</strong> for fast asset lookup inside FASSETS.</p>
+          <div class="inline-meta">
+            <a class="button-link secondary" href="{% url 'assets:asset_qr_label' tracked_asset.id %}">Open Printable Label</a>
+            <a class="button-link secondary" href="{{ tracked_asset_tracker_url }}">Refresh Tracking Link</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="grid three">
+        <div class="panel">
+          <p class="eyebrow">Allocation State</p>
+          {% if tracked_asset_active_allocation %}
+            <h3>{{ tracked_asset_active_allocation.get_status_display }}</h3>
+            <p>
+              Held by
+              {% if tracked_asset_active_allocation.allocated_to %}
+                {{ tracked_asset_active_allocation.allocated_to.get_full_name|default:tracked_asset_active_allocation.allocated_to.username }}
+              {% else %}
+                {{ tracked_asset_active_allocation.allocated_to_lab }}
+              {% endif %}
+            </p>
+            <p class="muted">Issued {{ tracked_asset_active_allocation.allocation_date|date:"M d, Y" }}{% if tracked_asset_active_allocation.expected_return_date %}, return due {{ tracked_asset_active_allocation.expected_return_date|date:"M d, Y" }}{% endif %}.</p>
+          {% else %}
+            <h3>Available</h3>
+            <p>No active or overdue allocation is linked to this asset right now.</p>
+          {% endif %}
+        </div>
+
+        <div class="panel">
+          <p class="eyebrow">Maintenance</p>
+          {% if tracked_asset_open_maintenance %}
+            <h3>{{ tracked_asset_open_maintenance.get_status_display }}</h3>
+            <p>{{ tracked_asset_open_maintenance.get_maintenance_type_display }} maintenance scheduled for {{ tracked_asset_open_maintenance.scheduled_date|date:"M d, Y" }}.</p>
+            <p class="muted">{{ tracked_asset_open_maintenance.description }}</p>
+          {% else %}
+            <h3>No open work</h3>
+            <p>No scheduled or in-progress maintenance is currently attached to this asset.</p>
+          {% endif %}
+        </div>
+
+        <div class="panel">
+          <p class="eyebrow">Movement</p>
+          {% if tracked_asset_latest_movement %}
+            <h3>Latest relocation recorded</h3>
+            <p>{{ tracked_asset_latest_movement.from_location }} to {{ tracked_asset_latest_movement.to_location }}</p>
+            <p class="muted">Moved by {{ tracked_asset_latest_movement.moved_by.username }} on {{ tracked_asset_latest_movement.moved_at|date:"M d, Y H:i" }}.</p>
+          {% else %}
+            <h3>No movement history</h3>
+            <p>No recorded location transfers are attached to this asset yet.</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

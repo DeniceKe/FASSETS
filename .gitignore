@@ -10,9 +10,11 @@ __pycache__/
 .venv/
 venv/
 env/
+Include/
 Lib/
 Scripts/
 pyvenv.cfg
+CACHEDIR.TAG
 
 # Django
 *.log

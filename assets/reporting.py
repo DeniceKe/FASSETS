@@ -1,3 +1,8 @@
+import datetime
+
+from django.db.models import Count
+from django.db.models.functions import TruncMonth
+from django.utils import timezone
 from django.utils.dateparse import parse_date
 
 from allocations.models import REQUEST_STATUS
@@ -5,6 +10,45 @@ from assets.models import CONDITION_CHOICES, STATUS_CHOICES
 from maintenance.models import MAINTENANCE_STATUS
 
 IGNORED_ACTIVITY_STATUS_FILTERS = {"available": ("request_status", "maintenance_status")}
+
+REPORT_SECTION_DETAILS = {
+    "inventory-report": {
+        "title": "Inventory Report",
+        "heading": "Assets matching the current query",
+    },
+    "dashboard-summary": {
+        "title": "Dashboard Summary",
+        "heading": "Overall asset posture",
+    },
+    "assets-by-department": {
+        "title": "Assets By Department",
+        "heading": "Department distribution",
+    },
+    "assigned-assets": {
+        "title": "Assigned Assets",
+        "heading": "Currently issued assets",
+    },
+    "returned-assets": {
+        "title": "Returned Assets",
+        "heading": "Assets already checked back in",
+    },
+    "maintenance-history": {
+        "title": "Maintenance History",
+        "heading": "Maintenance records",
+    },
+    "asset-movements": {
+        "title": "Asset Movements",
+        "heading": "Location movement history",
+    },
+    "depreciation-summary": {
+        "title": "Depreciation Summary",
+        "heading": "Depreciation totals and latest records",
+    },
+    "request-report": {
+        "title": "Request Report",
+        "heading": "Asset requests and decisions",
+    },
+}
 
 
 def _choice_options(choices):
@@ -137,10 +181,6 @@ def apply_report_filters(
 
 
 def build_report_filter_context(filters, selected_category=None):
-    report_filter_notice = ""
-    if filters.get("ignore_related_activity_status_filters"):
-        report_filter_notice = "Available assets ignore request and maintenance status filters."
-
     report_filters = [
         {
             "label": "Date From",
@@ -185,6 +225,147 @@ def build_report_filter_context(filters, selected_category=None):
         "asset_condition_options": _choice_options(CONDITION_CHOICES),
         "request_status_options": _choice_options(REQUEST_STATUS),
         "maintenance_status_options": _choice_options(MAINTENANCE_STATUS),
-        "report_filter_notice": report_filter_notice,
-        "ignore_related_activity_status_filters": filters.get("ignore_related_activity_status_filters", False),
+    }
+
+
+def resolve_report_section(section_id):
+    return section_id if section_id in REPORT_SECTION_DETAILS else "inventory-report"
+
+
+def _chart_rows(rows, *, label_key, value_key, empty_label):
+    data = list(rows)
+    max_value = max((item[value_key] for item in data), default=0)
+
+    if not data:
+        return [
+            {
+                "label": empty_label,
+                "value": 0,
+                "percentage": 0,
+                "color": "#94a3b8",
+            }
+        ]
+
+    color_palette = [
+        "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4"
+    ]
+
+    chart_rows = []
+    for i, item in enumerate(data):
+        value = item[value_key]
+        chart_rows.append(
+            {
+                "label": item[label_key],
+                "value": value,
+                "percentage": int(round((value / max_value) * 100)) if max_value else 0,
+                "color": color_palette[i % len(color_palette)],
+            }
+        )
+    return chart_rows
+
+
+def _recent_month_starts(months):
+    today = timezone.localdate()
+    current = today.replace(day=1)
+    results = []
+    for _ in range(months):
+        results.append(current)
+        previous_month_last_day = current - datetime.timedelta(days=1)
+        current = previous_month_last_day.replace(day=1)
+    return list(reversed(results))
+
+
+def build_dashboard_chart_context(*, assets_qs, allocations_qs, maintenance_qs):
+    status_counts = [
+        {"label": "Available", "value": assets_qs.filter(status="available").count(), "color": "#10b981"},
+        {"label": "Allocated", "value": assets_qs.filter(status="allocated").count(), "color": "#3b82f6"},
+        {"label": "Maintenance", "value": assets_qs.filter(status="maintenance").count(), "color": "#f59e0b"},
+        {"label": "Disposed", "value": assets_qs.filter(status="disposed").count(), "color": "#ef4444"},
+    ]
+    total_assets = sum(item["value"] for item in status_counts)
+    status_chart = []
+    for item in status_counts:
+        status_chart.append(
+            {
+                **item,
+                "share": int(round((item["value"] / total_assets) * 100)) if total_assets else 0,
+                "percentage": int(round((item["value"] / total_assets) * 100)) if total_assets else 0,
+            }
+        )
+
+    # Color palette for categories and departments
+    color_palette = [
+        "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4"
+    ]
+
+    category_chart = _chart_rows(
+        assets_qs.values("category__name")
+        .annotate(total=Count("id"))
+        .order_by("-total", "category__name")[:6],
+        label_key="category__name",
+        value_key="total",
+        empty_label="No categories yet",
+    )
+
+    department_chart = _chart_rows(
+        assets_qs.values("current_location__department__name")
+        .annotate(total=Count("id"))
+        .order_by("-total", "current_location__department__name")[:6],
+        label_key="current_location__department__name",
+        value_key="total",
+        empty_label="No departments yet",
+    )
+
+    month_starts = _recent_month_starts(6)
+    month_lookup = {month_start: index for index, month_start in enumerate(month_starts)}
+    allocation_counts = [0] * len(month_starts)
+    maintenance_counts = [0] * len(month_starts)
+
+    allocation_rows = (
+        allocations_qs.annotate(month=TruncMonth("allocation_date"))
+        .values("month")
+        .annotate(total=Count("id"))
+        .order_by("month")
+    )
+    for row in allocation_rows:
+        month_value = row["month"]
+        if month_value:
+            month_start = (month_value.date() if hasattr(month_value, "date") else month_value).replace(day=1)
+            if month_start in month_lookup:
+                allocation_counts[month_lookup[month_start]] = row["total"]
+
+    maintenance_rows = (
+        maintenance_qs.annotate(month=TruncMonth("scheduled_date"))
+        .values("month")
+        .annotate(total=Count("id"))
+        .order_by("month")
+    )
+    for row in maintenance_rows:
+        month_value = row["month"]
+        if month_value:
+            month_start = (month_value.date() if hasattr(month_value, "date") else month_value).replace(day=1)
+            if month_start in month_lookup:
+                maintenance_counts[month_lookup[month_start]] = row["total"]
+
+    activity_peak = max(allocation_counts + maintenance_counts, default=0)
+    activity_chart = []
+    for index, month_start in enumerate(month_starts):
+        allocation_total = allocation_counts[index]
+        maintenance_total = maintenance_counts[index]
+        activity_chart.append(
+            {
+                "label": month_start.strftime("%b %Y"),
+                "allocation_count": allocation_total,
+                "maintenance_count": maintenance_total,
+                "allocation_height": int(round((allocation_total / activity_peak) * 100)) if activity_peak else 0,
+                "maintenance_height": int(round((maintenance_total / activity_peak) * 100)) if activity_peak else 0,
+            }
+        )
+
+    return {
+        "dashboard_status_chart": status_chart,
+        "dashboard_category_chart": category_chart,
+        "dashboard_department_chart": department_chart,
+        "dashboard_activity_chart": activity_chart,
+        "dashboard_chart_total_assets": total_assets,
     }

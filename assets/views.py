@@ -1,9 +1,11 @@
+import re
+
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import get_user_model
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib import messages
 from django.db.models import Count, Q, Sum
-from django.http import Http404
+from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 from django.urls import reverse
@@ -18,13 +20,33 @@ from accounts.models import (
     ROLE_LAB_TECHNICIAN,
     ROLE_LECTURER,
 )
-from .models import Asset, AssetMovement, Category, DepreciationRecord
+from .models import (
+    LOCATION_BUILDING_ABBREVIATIONS,
+    Asset,
+    AssetMovement,
+    Category,
+    DepreciationRecord,
+)
 from allocations.models import Allocation, AssetRequest
 from maintenance.models import Maintenance
 from accounts.roles import get_role_label, infer_user_role
 from django.utils import timezone
+from .exports import (
+    build_export_filename,
+    build_report_export_payload,
+    render_excel_bytes,
+    render_pdf_bytes,
+)
 from .notifications import build_user_notifications
-from .reporting import apply_report_filters, build_report_filter_context, normalize_report_filters
+from .qr import make_qr_png, normalize_tracking_code
+from .reporting import (
+    REPORT_SECTION_DETAILS,
+    apply_report_filters,
+    build_dashboard_chart_context,
+    build_report_filter_context,
+    normalize_report_filters,
+    resolve_report_section,
+)
 
 from .forms import AssetIssueReportForm, AssetRequestForm
 
@@ -43,10 +65,91 @@ def _user_can_manage_user_asset_lookup(user, role=None):
     return user.is_superuser or resolved_role in {ROLE_ADMIN, ROLE_COD}
 
 
+def _user_can_manage_lab_asset_lookup(user, role=None):
+    resolved_role = role or infer_user_role(user)
+    return user.is_superuser or resolved_role in {ROLE_ADMIN, ROLE_COD, ROLE_LAB_TECHNICIAN}
+
+
+def _visible_assets_queryset_for_user(user, role=None):
+    assets_qs = Asset.objects.select_related(
+        "category",
+        "supplier",
+        "current_location",
+        "current_location__department",
+    )
+    resolved_role = role or infer_user_role(user)
+    profile = getattr(user, "profile", None)
+    department = getattr(profile, "department", None)
+
+    if not user.is_superuser and resolved_role not in {ROLE_ADMIN, ROLE_DEAN, ROLE_INTERNAL_AUDITOR}:
+        if department:
+            assets_qs = assets_qs.filter(current_location__department=department)
+        else:
+            assets_qs = assets_qs.none()
+
+    return assets_qs
+
+
+def _find_trackable_asset(user, raw_code):
+    normalized_code = normalize_tracking_code(raw_code)
+    if not normalized_code:
+        return normalized_code, None
+
+    asset = (
+        _visible_assets_queryset_for_user(user)
+        .filter(Q(asset_id__iexact=normalized_code) | Q(barcode__iexact=normalized_code))
+        .first()
+    )
+    return normalized_code, asset
+
+
+def _build_asset_tracking_context(asset):
+    active_allocation = (
+        asset.allocations.select_related("allocated_to", "allocated_to__profile", "allocated_to_lab", "allocated_by")
+        .filter(status__in=["active", "overdue"])
+        .order_by("-allocation_date", "-id")
+        .first()
+    )
+    open_maintenance = (
+        asset.maintenance_records.select_related("technician", "reported_by")
+        .filter(status__in=["scheduled", "in_progress"])
+        .order_by("scheduled_date", "created_at")
+        .first()
+    )
+    latest_movement = (
+        asset.movements.select_related("from_location", "to_location", "moved_by")
+        .order_by("-moved_at")
+        .first()
+    )
+    tracker_url = f'{reverse("assets:asset_tracker")}?code={asset.asset_id}'
+
+    return {
+        "tracked_asset": asset,
+        "tracked_asset_active_allocation": active_allocation,
+        "tracked_asset_open_maintenance": open_maintenance,
+        "tracked_asset_latest_movement": latest_movement,
+        "tracked_asset_tracker_url": tracker_url,
+    }
+
+
 def _build_asset_search_filter(search_term):
     search_term = (search_term or "").strip()
     if not search_term:
         return Q()
+
+    normalized_tokens = {
+        token.casefold()
+        for token in re.split(r"[^A-Za-z0-9]+", search_term)
+        if token.strip()
+    }
+    building_alias_query = Q()
+    for phrase, abbreviation in LOCATION_BUILDING_ABBREVIATIONS.items():
+        normalized_abbreviation = abbreviation.casefold()
+        if any(
+            token == normalized_abbreviation or normalized_abbreviation.startswith(token)
+            for token in normalized_tokens
+        ):
+            building_alias_query |= Q(current_location__building__icontains=phrase)
 
     return (
         Q(asset_id__icontains=search_term)
@@ -56,10 +159,104 @@ def _build_asset_search_filter(search_term):
         | Q(description__icontains=search_term)
         | Q(category__name__icontains=search_term)
         | Q(current_location__building__icontains=search_term)
+        | Q(current_location__floor__icontains=search_term)
         | Q(current_location__room__icontains=search_term)
+        | Q(current_location__room_type__icontains=search_term)
         | Q(current_location__department__name__icontains=search_term)
         | Q(current_location__department__code__icontains=search_term)
+        | building_alias_query
     )
+
+
+def _build_lab_asset_lookup_context(user, search_term, role=None):
+    search_term = (search_term or "").strip()
+    if not search_term:
+        return {
+            "query": "",
+            "results": [],
+            "searched": False,
+        }
+
+    matched_assets = list(
+        _visible_assets_queryset_for_user(user, role=role)
+        .filter(current_location__room_type="lab")
+        .filter(_build_asset_search_filter(search_term))
+        .order_by(
+            "current_location__department__name",
+            "current_location__building",
+            "current_location__room",
+            "asset_id",
+        )[:150]
+    )
+
+    active_allocations = {}
+    if matched_assets:
+        for allocation in (
+            Allocation.objects.select_related(
+                "allocated_to",
+                "allocated_to__profile",
+                "allocated_to_lab",
+            )
+            .filter(
+                asset__in=matched_assets,
+                status__in=["active", "overdue"],
+            )
+            .order_by("-allocation_date", "-id")
+        ):
+            active_allocations.setdefault(allocation.asset_id, allocation)
+
+    grouped_results = {}
+    for asset in matched_assets:
+        location = asset.current_location
+        location_entry = grouped_results.setdefault(
+            location.id,
+            {
+                "location": location,
+                "display_name": location.short_label,
+                "department_name": location.department.name,
+                "asset_count": 0,
+                "assets": [],
+            },
+        )
+
+        active_allocation = active_allocations.get(asset.id)
+        if active_allocation:
+            if active_allocation.allocated_to_lab:
+                holder_label = f"Assigned to {active_allocation.allocated_to_lab}"
+            elif active_allocation.allocated_to:
+                holder_name = active_allocation.allocated_to.get_full_name().strip() or active_allocation.allocated_to.username
+                holder_label = f"Held by {holder_name}"
+            else:
+                holder_label = "Active allocation on record"
+            allocation_status = active_allocation.get_status_display()
+        else:
+            holder_label = "Held in lab inventory"
+            allocation_status = "No active allocation"
+
+        location_entry["assets"].append(
+            {
+                "asset": asset,
+                "active_allocation": active_allocation,
+                "holder_label": holder_label,
+                "allocation_status": allocation_status,
+            }
+        )
+        location_entry["asset_count"] += 1
+
+    results = sorted(
+        grouped_results.values(),
+        key=lambda item: (
+            item["department_name"],
+            item["location"].building,
+            item["location"].room,
+        ),
+    )
+
+    return {
+        "query": search_term,
+        "results": results,
+        "searched": True,
+    }
 
 
 def _build_user_asset_lookup_context(search_term):
@@ -355,12 +552,7 @@ def _build_reports_center_context(request):
     department = getattr(profile, "department", None)
     categories = Category.objects.all().order_by("name")
     filters = normalize_report_filters(request.GET)
-    inventory_assets = Asset.objects.select_related(
-        "category",
-        "supplier",
-        "current_location",
-        "current_location__department",
-    ).order_by("asset_id")
+    inventory_assets = _visible_assets_queryset_for_user(request.user, role=role).order_by("asset_id")
     asset_requests_queryset = AssetRequest.objects.select_related(
         "asset",
         "requested_by",
@@ -465,6 +657,16 @@ def _build_reports_center_context(request):
             "active_allocations": assigned_assets_queryset.count(),
             "returned_allocations": returned_assets_queryset.count(),
         },
+        "report_export_sources": {
+            "inventory-report": inventory_assets,
+            "assets-by-department": assets_by_department,
+            "assigned-assets": assigned_assets_queryset,
+            "returned-assets": returned_assets_queryset,
+            "maintenance-history": maintenance_queryset,
+            "asset-movements": movement_queryset,
+            "depreciation-summary": depreciation_queryset,
+            "request-report": asset_requests_queryset,
+        },
         "inventory_assets": inventory_assets[:100],
         "assets_by_department": assets_by_department,
         "asset_requests_report": asset_requests_queryset[:100],
@@ -487,50 +689,6 @@ def _build_reports_center_context(request):
         "maintenance_status": filters["maintenance_status"],
         **filter_context,
     }
-
-
-REPORT_SECTION_DETAILS = {
-    "inventory-report": {
-        "title": "Inventory Report",
-        "heading": "Assets matching the current query",
-    },
-    "dashboard-summary": {
-        "title": "Dashboard Summary",
-        "heading": "Overall asset posture",
-    },
-    "assets-by-department": {
-        "title": "Assets By Department",
-        "heading": "Department distribution",
-    },
-    "assigned-assets": {
-        "title": "Assigned Assets",
-        "heading": "Currently issued assets",
-    },
-    "returned-assets": {
-        "title": "Returned Assets",
-        "heading": "Assets already checked back in",
-    },
-    "maintenance-history": {
-        "title": "Maintenance History",
-        "heading": "Maintenance records",
-    },
-    "asset-movements": {
-        "title": "Asset Movements",
-        "heading": "Location movement history",
-    },
-    "depreciation-summary": {
-        "title": "Depreciation Summary",
-        "heading": "Depreciation totals and latest records",
-    },
-    "request-report": {
-        "title": "Request Report",
-        "heading": "Asset requests and decisions",
-    },
-}
-
-
-def _resolve_report_section(section_id):
-    return section_id if section_id in REPORT_SECTION_DETAILS else "inventory-report"
 
 
 HELP_CENTER_TOPICS = [
@@ -859,8 +1017,21 @@ def dashboard(request):
 @login_required
 def reports_center(request):
     context = _build_reports_center_context(request)
+    export_format = request.GET.get("export", "").strip().lower()
+    if export_format in {"pdf", "excel"}:
+        section = resolve_report_section(request.GET.get("section", "").strip())
+        payload = build_report_export_payload(section, context)
+        if export_format == "pdf":
+            response = HttpResponse(render_pdf_bytes(payload), content_type="application/pdf")
+            response["Content-Disposition"] = f'attachment; filename="{build_export_filename(payload, "pdf")}"'
+            return response
+
+        response = HttpResponse(render_excel_bytes(payload), content_type="application/vnd.ms-excel")
+        response["Content-Disposition"] = f'attachment; filename="{build_export_filename(payload, "xls")}"'
+        return response
+
     if request.GET.get("print") == "1":
-        print_section = _resolve_report_section(request.GET.get("section", "").strip())
+        print_section = resolve_report_section(request.GET.get("section", "").strip())
         context.update(
             {
                 "print_section": print_section,
@@ -890,18 +1061,13 @@ def _build_dashboard_context(
     except ValueError:
         notification_focus_asset_id = None
 
-    assets_qs = Asset.objects.select_related(
-        "category",
-        "current_location",
-        "current_location__department",
-        "supplier",
-    )
+    role = infer_user_role(request.user)
+    assets_qs = _visible_assets_queryset_for_user(request.user, role=role)
     allocations_qs = Allocation.objects.select_related("asset", "allocated_to", "allocated_to_lab")
     maintenance_qs = Maintenance.objects.select_related("asset", "technician", "reported_by")
 
     profile = getattr(request.user, "profile", None)
     department = getattr(profile, "department", None)
-    role = infer_user_role(request.user)
     can_request_assets = _user_can_request_assets(request.user, role)
     can_browse_department_assets_without_search = _user_can_browse_department_assets_without_search(request.user, role)
     show_department_category_breakdown = can_browse_department_assets_without_search
@@ -914,11 +1080,9 @@ def _build_dashboard_context(
 
     if not request.user.is_superuser and role not in {ROLE_ADMIN, ROLE_DEAN, ROLE_INTERNAL_AUDITOR}:
         if department:
-            assets_qs = assets_qs.filter(current_location__department=department)
             allocations_qs = allocations_qs.filter(asset__current_location__department=department)
             maintenance_qs = maintenance_qs.filter(asset__current_location__department=department)
         else:
-            assets_qs = assets_qs.none()
             allocations_qs = allocations_qs.none()
             maintenance_qs = maintenance_qs.none()
 
@@ -937,11 +1101,14 @@ def _build_dashboard_context(
     inventory_search = request.GET.get("inventory_search", "").strip()
     activity_search = request.GET.get("activity_search", "").strip()
     user_asset_search = request.GET.get("user_asset_search", "").strip()
+    lab_asset_search = request.GET.get("lab_asset_search", "").strip()
     dashboard_search_active = bool(asset_search)
     category_search_active = bool(category_search)
     inventory_search_active = bool(inventory_search)
     activity_search_active = bool(activity_search)
     user_asset_search_active = bool(user_asset_search) and can_view_user_asset_lookup
+    can_view_lab_asset_lookup = _user_can_manage_lab_asset_lookup(request.user, role)
+    lab_asset_search_active = bool(lab_asset_search) and can_view_lab_asset_lookup
     asset_search_filter = _build_asset_search_filter(asset_search)
     category_search_filter = _build_asset_search_filter(category_search)
     inventory_search_filter = _build_asset_search_filter(inventory_search)
@@ -952,6 +1119,11 @@ def _build_dashboard_context(
     inventory_assets_qs = assets_qs.filter(inventory_search_filter) if inventory_search_active else assets_qs.none()
     activity_assets_qs = assets_qs.filter(activity_search_filter) if activity_search_active else assets_qs.none()
     user_asset_lookup = _build_user_asset_lookup_context(user_asset_search) if can_view_user_asset_lookup else {
+        "query": "",
+        "results": [],
+        "searched": False,
+    }
+    lab_asset_lookup = _build_lab_asset_lookup_context(request.user, lab_asset_search, role=role) if can_view_lab_asset_lookup else {
         "query": "",
         "results": [],
         "searched": False,
@@ -992,6 +1164,8 @@ def _build_dashboard_context(
         default_dashboard_section = "activity-overview"
     elif user_asset_search_active:
         default_dashboard_section = "user-asset-lookup"
+    elif lab_asset_search_active:
+        default_dashboard_section = "lab-asset-lookup"
     elif issue_form_asset_id or has_assets_under_care:
         default_dashboard_section = "personal-overview"
     elif role == ROLE_LAB_TECHNICIAN and role_workspace_links:
@@ -1051,6 +1225,11 @@ def _build_dashboard_context(
             None,
         )
     dashboard_help_topics = _help_topic_cards_for(request, role, limit=6)
+    chart_context = build_dashboard_chart_context(
+        assets_qs=assets_qs,
+        allocations_qs=allocations_qs,
+        maintenance_qs=maintenance_qs,
+    )
 
     recent_requests = AssetRequest.objects.select_related("asset", "reviewed_by").filter(
         requested_by=request.user,
@@ -1106,6 +1285,7 @@ def _build_dashboard_context(
         "dashboard_help_topics": dashboard_help_topics,
         "dashboard_help_topics_count": len(dashboard_help_topics),
         "department_distribution": department_distribution,
+        "asset_tracker_url": reverse("assets:asset_tracker"),
         "user_role": get_role_label(role, default="Unassigned"),
         "user_department": department,
         "request_form_asset_id": request_form_asset_id,
@@ -1119,11 +1299,13 @@ def _build_dashboard_context(
         "inventory_search": inventory_search,
         "activity_search": activity_search,
         "user_asset_search": user_asset_search,
+        "lab_asset_search": lab_asset_search,
         "dashboard_search_active": dashboard_search_active,
         "category_search_active": category_search_active,
         "inventory_search_active": inventory_search_active,
         "activity_search_active": activity_search_active,
         "user_asset_search_active": user_asset_search_active,
+        "lab_asset_search_active": lab_asset_search_active,
         "default_dashboard_section": default_dashboard_section,
         "department_assets_total": department_assets_qs.count(),
         "department_assets_search_active": bool(asset_search or request_form_asset_id),
@@ -1137,9 +1319,55 @@ def _build_dashboard_context(
         "can_view_activity_overview": can_view_activity_overview,
         "can_view_reports": can_view_reports,
         "can_view_user_asset_lookup": can_view_user_asset_lookup,
+        "can_view_lab_asset_lookup": can_view_lab_asset_lookup,
         "user_asset_lookup": user_asset_lookup,
+        "lab_asset_lookup": lab_asset_lookup,
         "notification_focus_asset_id": notification_focus_asset_id,
+        **chart_context,
     }
+
+
+@login_required
+def asset_tracker(request):
+    tracking_code = request.GET.get("code", "").strip()
+    normalized_tracking_code, tracked_asset = _find_trackable_asset(request.user, tracking_code)
+    tracking_error = ""
+    tracking_context = {}
+
+    if tracking_code and tracked_asset is None:
+        tracking_error = "No visible asset matched that QR code or barcode."
+    elif tracked_asset is not None:
+        tracking_context = _build_asset_tracking_context(tracked_asset)
+
+    return render(
+        request,
+        "asset_tracker.html",
+        {
+            "tracking_code": tracking_code,
+            "normalized_tracking_code": normalized_tracking_code,
+            "tracking_error": tracking_error,
+            **tracking_context,
+        },
+    )
+
+
+@login_required
+def asset_qr_label(request, asset_id):
+    asset = get_object_or_404(_visible_assets_queryset_for_user(request.user), pk=asset_id)
+    return render(
+        request,
+        "asset_qr_label.html",
+        _build_asset_tracking_context(asset),
+    )
+
+
+@login_required
+def asset_qr_image(request, asset_id):
+    asset = get_object_or_404(_visible_assets_queryset_for_user(request.user), pk=asset_id)
+    png_bytes = make_qr_png(asset.asset_id)
+    response = HttpResponse(png_bytes, content_type="image/png")
+    response["Content-Disposition"] = f'inline; filename="{asset.asset_id.lower()}-qr.png"'
+    return response
 
 
 @staff_member_required

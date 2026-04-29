@@ -532,11 +532,6 @@
     <form method="get" class="reports-filter-card">
       <div>
         <p class="eyebrow">Report Query Filters</p>
-        <h3>Generate reports by date, maintenance status, asset status, and condition</h3>
-        <p>Use one filter set to narrow the report tables below before printing or saving the report.</p>
-        <p class="reports-filter-hint" data-availability-filter-note {% if not ignore_related_activity_status_filters %}hidden{% endif %}>
-          {{ report_filter_notice|default:"Available assets ignore request and maintenance status filters." }}
-        </p>
       </div>
 
       <div class="reports-filter-grid">
@@ -598,6 +593,8 @@
       <div class="reports-filter-actions">
         <button type="submit">Generate Report</button>
         <button type="button" class="button-link report-print-button" data-report-print-button>Print Current Report</button>
+        <button type="button" class="button-link secondary" data-report-export-button="pdf">Export PDF</button>
+        <button type="button" class="button-link secondary" data-report-export-button="excel">Export Excel</button>
         <a class="button-link secondary" href="{% url 'assets:reports_center' %}">Clear Filters</a>
       </div>
     </form>
@@ -1346,9 +1343,9 @@
     const sections = Array.from(document.querySelectorAll('[data-report-section]'));
     const navLinks = Array.from(document.querySelectorAll('[data-report-target]'));
     const printButton = document.querySelector('[data-report-print-button]');
+    const exportButtons = Array.from(document.querySelectorAll('[data-report-export-button]'));
     const assetStatusFilter = document.querySelector('[data-asset-status-filter]');
     const dependentStatusFilters = Array.from(document.querySelectorAll('[data-dependent-status-filter]'));
-    const availabilityFilterNote = document.querySelector('[data-availability-filter-note]');
     if (!sections.length || !navLinks.length) return;
 
     const defaultSection = 'inventory-report';
@@ -1392,14 +1389,27 @@
     function openPrintView() {
       const printUrl = new URL(window.location.href);
       printUrl.hash = '';
+      printUrl.searchParams.delete('export');
       printUrl.searchParams.set('print', '1');
       printUrl.searchParams.set('section', currentSectionId || defaultSection);
       window.open(printUrl.toString(), '_blank', 'noopener');
     }
 
+    function exportCurrentReport(format) {
+      const exportUrl = new URL(window.location.href);
+      exportUrl.hash = '';
+      exportUrl.searchParams.delete('print');
+      exportUrl.searchParams.set('export', format);
+      exportUrl.searchParams.set('section', currentSectionId || defaultSection);
+      window.open(exportUrl.toString(), '_blank', 'noopener');
+    }
+
     window.addEventListener('hashchange', syncFromHash);
     assetStatusFilter?.addEventListener('change', syncDependentStatusFilters);
     printButton?.addEventListener('click', openPrintView);
+    exportButtons.forEach((button) => {
+      button.addEventListener('click', () => exportCurrentReport(button.dataset.reportExportButton));
+    });
     syncDependentStatusFilters();
     syncFromHash();
   })();

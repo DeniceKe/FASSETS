@@ -659,6 +659,145 @@
       width: fit-content;
     }
 
+    .dashboard-chart-grid {
+      display: grid;
+      gap: 18px;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      align-items: start;
+    }
+
+    .dashboard-chart-card {
+      display: grid;
+      gap: 14px;
+      align-content: start;
+    }
+
+    .dashboard-chart-card h3,
+    .dashboard-chart-card p {
+      margin: 0;
+    }
+
+    .dashboard-chart-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .dashboard-chart-row {
+      display: grid;
+      gap: 8px;
+    }
+
+    .dashboard-chart-row-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 0.92rem;
+    }
+
+    .dashboard-chart-row-top strong,
+    .dashboard-chart-row-top span {
+      margin: 0;
+    }
+
+    .dashboard-chart-track {
+      height: 12px;
+      border-radius: 999px;
+      background: rgba(148, 163, 184, 0.18);
+      overflow: hidden;
+    }
+
+    .dashboard-chart-fill {
+      display: block;
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(20, 184, 166, 0.88), rgba(14, 165, 233, 0.88));
+    }
+
+    .dashboard-chart-fill.is-secondary {
+      background: linear-gradient(90deg, rgba(59, 130, 246, 0.88), rgba(99, 102, 241, 0.88));
+    }
+
+    .dashboard-chart-fill.is-accent {
+      background: linear-gradient(90deg, rgba(249, 115, 22, 0.88), rgba(234, 88, 12, 0.88));
+    }
+
+    .dashboard-chart-fill.is-warning {
+      background: linear-gradient(90deg, rgba(244, 114, 182, 0.88), rgba(236, 72, 153, 0.88));
+    }
+
+    .dashboard-activity-chart {
+      display: flex;
+      align-items: end;
+      gap: 14px;
+      min-height: 220px;
+      padding-top: 12px;
+    }
+
+    .dashboard-activity-group {
+      flex: 1 1 0;
+      display: grid;
+      gap: 10px;
+      justify-items: center;
+    }
+
+    .dashboard-activity-columns {
+      width: 100%;
+      min-height: 170px;
+      display: flex;
+      align-items: end;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .dashboard-activity-bar {
+      width: 24px;
+      min-height: 6px;
+      border-radius: 14px 14px 0 0;
+      background: linear-gradient(180deg, rgba(59, 130, 246, 0.9), rgba(37, 99, 235, 0.92));
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    }
+
+    .dashboard-activity-bar.is-maintenance {
+      background: linear-gradient(180deg, rgba(249, 115, 22, 0.9), rgba(234, 88, 12, 0.92));
+    }
+
+    .dashboard-activity-meta {
+      display: grid;
+      gap: 4px;
+      text-align: center;
+      font-size: 0.84rem;
+    }
+
+    .dashboard-activity-meta strong,
+    .dashboard-activity-meta span {
+      margin: 0;
+    }
+
+    .dashboard-chart-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      font-size: 0.88rem;
+    }
+
+    .dashboard-chart-legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .dashboard-chart-swatch {
+      width: 12px;
+      height: 12px;
+      border-radius: 999px;
+      background: linear-gradient(180deg, rgba(59, 130, 246, 0.9), rgba(37, 99, 235, 0.92));
+    }
+
+    .dashboard-chart-swatch.is-maintenance {
+      background: linear-gradient(180deg, rgba(249, 115, 22, 0.9), rgba(234, 88, 12, 0.92));
+    }
+
     @media (min-width: 981px) {
       .dashboard-shell {
         min-height: 700px;
@@ -937,6 +1076,15 @@
               </span>
             </a>
           {% endif %}
+          {% if can_view_lab_asset_lookup %}
+            <a class="dashboard-sidebar-link {% if default_dashboard_section == 'lab-asset-lookup' %}is-active{% endif %}" href="#lab-asset-lookup" data-dashboard-target="lab-asset-lookup">
+              <span class="dashboard-nav-icon">LA</span>
+              <span class="dashboard-nav-text">
+                <strong>Lab Assets</strong>
+                <span>Search lab inventory</span>
+              </span>
+            </a>
+          {% endif %}
           {% if role_workspace_links %}
             <a class="dashboard-sidebar-link {% if default_dashboard_section == 'role-workspace' %}is-active{% endif %}" href="#role-workspace" data-dashboard-target="role-workspace">
               <span class="dashboard-nav-icon">RW</span>
@@ -951,6 +1099,13 @@
             <span class="dashboard-nav-text">
               <strong>Inventory Views</strong>
               <span>Recent assets</span>
+            </span>
+          </a>
+          <a class="dashboard-sidebar-link {% if default_dashboard_section == 'dashboard-charts' %}is-active{% endif %}" href="#dashboard-charts" data-dashboard-target="dashboard-charts">
+            <span class="dashboard-nav-icon">CH</span>
+            <span class="dashboard-nav-text">
+              <strong>Visual Insights</strong>
+              <span>Charts and trends</span>
             </span>
           </a>
           {% if can_view_activity_overview %}
@@ -971,6 +1126,13 @@
               </span>
             </a>
           {% endif %}
+          <a class="dashboard-sidebar-link" href="{{ asset_tracker_url }}">
+            <span class="dashboard-nav-icon">QR</span>
+            <span class="dashboard-nav-text">
+              <strong>QR Tracking</strong>
+              <span>Scan and label assets</span>
+            </span>
+          </a>
           {% if show_department_category_breakdown %}
             <a class="dashboard-sidebar-link {% if default_dashboard_section == 'category-control' %}is-active{% endif %}" href="#category-control" data-dashboard-target="category-control">
               <span class="dashboard-nav-icon">CC</span>
@@ -1362,6 +1524,103 @@
         </div>
       </section>
 
+      <section class="dashboard-section {% if default_dashboard_section != 'dashboard-charts' %}is-hidden{% endif %}" id="dashboard-charts" data-dashboard-section="dashboard-charts">
+        <div class="dashboard-section-head">
+          <div class="dashboard-section-copy">
+            <p class="eyebrow">Visual Insights</p>
+            <h2>Charts for status, ownership, and recent activity</h2>
+            <p>Use these live dashboard charts to understand how assets are distributed, where volume sits, and how issue activity is trending inside your visible scope.</p>
+          </div>
+          <div class="inline-meta">
+            <span class="chip">{{ dashboard_chart_total_assets }} asset{{ dashboard_chart_total_assets|pluralize }}</span>
+            <a class="button-link secondary" href="{{ asset_tracker_url }}">Open QR Tracker</a>
+          </div>
+        </div>
+
+        <div class="dashboard-chart-grid">
+          <article class="panel dashboard-chart-card">
+            <p class="eyebrow">Status Mix</p>
+            <h3>Asset status distribution</h3>
+            <div class="dashboard-chart-list">
+              {% for item in dashboard_status_chart %}
+                <div class="dashboard-chart-row">
+                  <div class="dashboard-chart-row-top">
+                    <strong>{{ item.label }}</strong>
+                    <span>{{ item.value }} asset{{ item.value|pluralize }}{% if dashboard_chart_total_assets %} · {{ item.share }}%{% endif %}</span>
+                  </div>
+                  <div class="dashboard-chart-track">
+                    <span
+                      class="dashboard-chart-fill{% if item.label == 'Available' %} is-secondary{% elif item.label == 'Allocated' %} is-accent{% elif item.label == 'Disposed' %} is-warning{% endif %}"
+                      style="width: {{ item.percentage }}%;"
+                    ></span>
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          </article>
+
+          <article class="panel dashboard-chart-card">
+            <p class="eyebrow">Category Load</p>
+            <h3>Top categories by asset volume</h3>
+            <div class="dashboard-chart-list">
+              {% for item in dashboard_category_chart %}
+                <div class="dashboard-chart-row">
+                  <div class="dashboard-chart-row-top">
+                    <strong>{{ item.label }}</strong>
+                    <span>{{ item.value }}</span>
+                  </div>
+                  <div class="dashboard-chart-track">
+                    <span class="dashboard-chart-fill is-secondary" style="width: {{ item.percentage }}%;"></span>
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          </article>
+
+          <article class="panel dashboard-chart-card">
+            <p class="eyebrow">Department Spread</p>
+            <h3>Departments holding the most assets</h3>
+            <div class="dashboard-chart-list">
+              {% for item in dashboard_department_chart %}
+                <div class="dashboard-chart-row">
+                  <div class="dashboard-chart-row-top">
+                    <strong>{{ item.label }}</strong>
+                    <span>{{ item.value }}</span>
+                  </div>
+                  <div class="dashboard-chart-track">
+                    <span class="dashboard-chart-fill is-accent" style="width: {{ item.percentage }}%;"></span>
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          </article>
+        </div>
+
+        <div class="panel dashboard-chart-card">
+          <p class="eyebrow">Six-Month Activity</p>
+          <h3>Allocations and maintenance over time</h3>
+          <p>Compare asset issue activity with maintenance scheduling to spot peaks in operational load.</p>
+          <div class="dashboard-chart-legend">
+            <span class="dashboard-chart-legend-item"><span class="dashboard-chart-swatch"></span>Allocations</span>
+            <span class="dashboard-chart-legend-item"><span class="dashboard-chart-swatch is-maintenance"></span>Maintenance</span>
+          </div>
+          <div class="dashboard-activity-chart" role="img" aria-label="Allocations and maintenance activity for the last six months">
+            {% for point in dashboard_activity_chart %}
+              <div class="dashboard-activity-group">
+                <div class="dashboard-activity-columns">
+                  <span class="dashboard-activity-bar" style="height: {% if point.allocation_height %}{{ point.allocation_height }}%{% else %}6px{% endif %};"></span>
+                  <span class="dashboard-activity-bar is-maintenance" style="height: {% if point.maintenance_height %}{{ point.maintenance_height }}%{% else %}6px{% endif %};"></span>
+                </div>
+                <div class="dashboard-activity-meta">
+                  <strong>{{ point.label }}</strong>
+                  <span>A {{ point.allocation_count }} / M {{ point.maintenance_count }}</span>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      </section>
+
       {% if can_view_activity_overview %}
         <section class="dashboard-section {% if default_dashboard_section != 'activity-overview' %}is-hidden{% endif %}" id="activity-overview" data-dashboard-section="activity-overview">
           <div class="dashboard-section-head">
@@ -1477,6 +1736,7 @@
           <div class="inline-meta">
             <span class="chip">{% if user_department %}{{ user_department.name }}{% else %}Faculty-wide view{% endif %}</span>
             <span class="chip">{{ department_assets_total }} result{{ department_assets_total|pluralize }}</span>
+            <a class="button-link secondary" href="{{ asset_tracker_url }}">QR Tracker</a>
           </div>
         </div>
 
@@ -1519,87 +1779,90 @@
                   <td><span class="status">{{ asset.get_condition_display }}</span></td>
                   <td>{{ asset.current_location }}</td>
                   <td>
-                    {% if request_status_by_asset|get_item:asset.id == "pending" %}
-                      <button class="cta-button is-disabled" type="button" disabled>Requested</button>
-                    {% elif not can_request_assets %}
-                      {% if asset_workspace_permissions.can_edit %}
-                        <a class="button-link secondary" href="{% url 'assets:workspace_resource' resource='assets' %}?edit={{ asset.id }}&search={{ asset.asset_id|urlencode }}">Manage Asset</a>
+                    <div class="list-stack">
+                      <a class="button-link secondary" href="{% url 'assets:asset_qr_label' asset.id %}">QR Label</a>
+                      {% if request_status_by_asset|get_item:asset.id == "pending" %}
+                        <button class="cta-button is-disabled" type="button" disabled>Requested</button>
+                      {% elif not can_request_assets %}
+                        {% if asset_workspace_permissions.can_edit %}
+                          <a class="button-link secondary" href="{% url 'assets:workspace_resource' resource='assets' %}?edit={{ asset.id }}&search={{ asset.asset_id|urlencode }}">Manage Asset</a>
+                        {% else %}
+                          <a class="button-link secondary" href="{% url 'assets:workspace_resource' resource='assets' %}?search={{ asset.asset_id|urlencode }}">Review Asset</a>
+                        {% endif %}
+                      {% elif asset.status == "available" %}
+                        {% with request_values=request_form_values_by_asset|get_item:asset.id request_errors=request_form_errors_by_asset|get_item:asset.id %}
+                          <details class="request-action-panel" {% if request_form_asset_id == asset.id %}open{% endif %}>
+                            <summary class="request-action-summary">Request</summary>
+                            <form method="post" action="{% url 'assets:request_asset' asset.id %}" class="request-inline-form">
+                              {% csrf_token %}
+                              <input type="hidden" name="asset_search" value="{{ asset_search }}">
+
+                              {% if request_errors.non_field_errors %}
+                                <ul class="form-error-list">
+                                  {% for error in request_errors.non_field_errors %}
+                                    <li>{{ error }}</li>
+                                  {% endfor %}
+                                </ul>
+                              {% endif %}
+
+                              <div class="request-field-grid">
+                                <div class="form-field">
+                                  <label for="request-reason-{{ asset.id }}">Reason for request</label>
+                                  <textarea id="request-reason-{{ asset.id }}" name="message" rows="3" required>{{ request_values.message }}</textarea>
+                                  {% if request_errors.message %}
+                                    <ul class="form-error-list">
+                                      {% for error in request_errors.message %}
+                                        <li>{{ error }}</li>
+                                      {% endfor %}
+                                    </ul>
+                                  {% endif %}
+                                </div>
+
+                                <div class="form-field">
+                                  <label for="request-start-{{ asset.id }}">When you need it</label>
+                                  <input id="request-start-{{ asset.id }}" type="datetime-local" name="requested_start_at" value="{{ request_values.requested_start_at }}" required>
+                                  {% if request_errors.requested_start_at %}
+                                    <ul class="form-error-list">
+                                      {% for error in request_errors.requested_start_at %}
+                                        <li>{{ error }}</li>
+                                      {% endfor %}
+                                    </ul>
+                                  {% endif %}
+                                </div>
+
+                                <div class="form-field">
+                                  <label for="request-end-{{ asset.id }}">When you will return it</label>
+                                  <input id="request-end-{{ asset.id }}" type="datetime-local" name="requested_end_at" value="{{ request_values.requested_end_at }}" required>
+                                  {% if request_errors.requested_end_at %}
+                                    <ul class="form-error-list">
+                                      {% for error in request_errors.requested_end_at %}
+                                        <li>{{ error }}</li>
+                                      {% endfor %}
+                                    </ul>
+                                  {% endif %}
+                                </div>
+
+                                <div class="form-field">
+                                  <label for="request-location-{{ asset.id }}">Place of use</label>
+                                  <input id="request-location-{{ asset.id }}" type="text" name="usage_location" value="{{ request_values.usage_location }}" placeholder="Office, lab, classroom, or venue" required>
+                                  {% if request_errors.usage_location %}
+                                    <ul class="form-error-list">
+                                      {% for error in request_errors.usage_location %}
+                                        <li>{{ error }}</li>
+                                      {% endfor %}
+                                    </ul>
+                                  {% endif %}
+                                </div>
+                              </div>
+
+                              <button class="cta-button" type="submit">Submit Request</button>
+                            </form>
+                          </details>
+                        {% endwith %}
                       {% else %}
-                        <a class="button-link secondary" href="{% url 'assets:workspace_resource' resource='assets' %}?search={{ asset.asset_id|urlencode }}">Review Asset</a>
+                        <button class="cta-button is-disabled" type="button" disabled>Request</button>
                       {% endif %}
-                    {% elif asset.status == "available" %}
-                      {% with request_values=request_form_values_by_asset|get_item:asset.id request_errors=request_form_errors_by_asset|get_item:asset.id %}
-                        <details class="request-action-panel" {% if request_form_asset_id == asset.id %}open{% endif %}>
-                          <summary class="request-action-summary">Request</summary>
-                          <form method="post" action="{% url 'assets:request_asset' asset.id %}" class="request-inline-form">
-                            {% csrf_token %}
-                            <input type="hidden" name="asset_search" value="{{ asset_search }}">
-
-                            {% if request_errors.non_field_errors %}
-                              <ul class="form-error-list">
-                                {% for error in request_errors.non_field_errors %}
-                                  <li>{{ error }}</li>
-                                {% endfor %}
-                              </ul>
-                            {% endif %}
-
-                            <div class="request-field-grid">
-                              <div class="form-field">
-                                <label for="request-reason-{{ asset.id }}">Reason for request</label>
-                                <textarea id="request-reason-{{ asset.id }}" name="message" rows="3" required>{{ request_values.message }}</textarea>
-                                {% if request_errors.message %}
-                                  <ul class="form-error-list">
-                                    {% for error in request_errors.message %}
-                                      <li>{{ error }}</li>
-                                    {% endfor %}
-                                  </ul>
-                                {% endif %}
-                              </div>
-
-                              <div class="form-field">
-                                <label for="request-start-{{ asset.id }}">When you need it</label>
-                                <input id="request-start-{{ asset.id }}" type="datetime-local" name="requested_start_at" value="{{ request_values.requested_start_at }}" required>
-                                {% if request_errors.requested_start_at %}
-                                  <ul class="form-error-list">
-                                    {% for error in request_errors.requested_start_at %}
-                                      <li>{{ error }}</li>
-                                    {% endfor %}
-                                  </ul>
-                                {% endif %}
-                              </div>
-
-                              <div class="form-field">
-                                <label for="request-end-{{ asset.id }}">When you will return it</label>
-                                <input id="request-end-{{ asset.id }}" type="datetime-local" name="requested_end_at" value="{{ request_values.requested_end_at }}" required>
-                                {% if request_errors.requested_end_at %}
-                                  <ul class="form-error-list">
-                                    {% for error in request_errors.requested_end_at %}
-                                      <li>{{ error }}</li>
-                                    {% endfor %}
-                                  </ul>
-                                {% endif %}
-                              </div>
-
-                              <div class="form-field">
-                                <label for="request-location-{{ asset.id }}">Place of use</label>
-                                <input id="request-location-{{ asset.id }}" type="text" name="usage_location" value="{{ request_values.usage_location }}" placeholder="Office, lab, classroom, or venue" required>
-                                {% if request_errors.usage_location %}
-                                  <ul class="form-error-list">
-                                    {% for error in request_errors.usage_location %}
-                                      <li>{{ error }}</li>
-                                    {% endfor %}
-                                  </ul>
-                                {% endif %}
-                              </div>
-                            </div>
-
-                            <button class="cta-button" type="submit">Submit Request</button>
-                          </form>
-                        </details>
-                      {% endwith %}
-                    {% else %}
-                      <button class="cta-button is-disabled" type="button" disabled>Request</button>
-                    {% endif %}
+                    </div>
                   </td>
                 </tr>
               {% endfor %}
@@ -1750,6 +2013,116 @@
             <div class="empty-state">
               <h3>Search to load assigned assets</h3>
               <p>Enter a user detail above to review the assets currently assigned to that account.</p>
+            </div>
+          {% endif %}
+        </section>
+      {% endif %}
+
+      {% if can_view_lab_asset_lookup %}
+        <section class="dashboard-section {% if default_dashboard_section != 'lab-asset-lookup' %}is-hidden{% endif %}" id="lab-asset-lookup" data-dashboard-section="lab-asset-lookup">
+          <div class="dashboard-section-head">
+            <div class="dashboard-section-copy">
+              <p class="eyebrow">Lab Asset Lookup</p>
+              <h2>Search lab-held assets that are available for use inside your visible labs</h2>
+              <p>Find equipment by lab room, building, asset ID, barcode, category, or asset name, then review the current status of items held in those labs.</p>
+            </div>
+            <span class="chip">Operational tool</span>
+          </div>
+
+          <form method="get" class="filters" style="margin-bottom: 1rem;">
+            <div style="flex: 1 1 320px;">
+              <input
+                name="lab_asset_search"
+                type="search"
+                placeholder="Search by lab room, building, asset ID, barcode, category, or asset name"
+                value="{{ lab_asset_lookup.query }}"
+              >
+            </div>
+            <button type="submit">Search Lab Assets</button>
+            {% if lab_asset_lookup.query %}
+              <a class="button-link secondary" href="{% url 'assets:dashboard' %}#lab-asset-lookup">Clear Search</a>
+            {% endif %}
+          </form>
+
+          {% if lab_asset_lookup.searched %}
+            {% if lab_asset_lookup.results %}
+              <div class="grid two">
+                {% for result in lab_asset_lookup.results %}
+                  <article class="panel">
+                    <div class="dashboard-section-head">
+                      <div class="dashboard-section-copy">
+                        <h3>{{ result.display_name }}</h3>
+                        <p>{{ result.department_name }} · {{ result.location.get_room_type_display }}</p>
+                      </div>
+                      <div class="inline-meta">
+                        <span class="chip">{{ result.asset_count }} asset{{ result.asset_count|pluralize }}</span>
+                      </div>
+                    </div>
+
+                    <div class="request-detail-grid" style="margin-bottom: 0.8rem;">
+                      <div class="request-detail">
+                        <span class="request-detail-label">Building</span>
+                        <span class="request-detail-value">{{ result.location.building }}</span>
+                      </div>
+                      <div class="request-detail">
+                        <span class="request-detail-label">Room</span>
+                        <span class="request-detail-value">{{ result.location.room }}</span>
+                      </div>
+                    </div>
+
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Asset</th>
+                          <th>Category</th>
+                          <th>Status</th>
+                          <th>Lab State</th>
+                          <th>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {% for item in result.assets %}
+                          <tr>
+                            <td>
+                              <strong>{{ item.asset.asset_id }}</strong><br>
+                              <span class="muted">{{ item.asset.name }}</span>
+                            </td>
+                            <td>{{ item.asset.category.name }}</td>
+                            <td>
+                              <span class="status {{ item.asset.status }}">{{ item.asset.get_status_display }}</span><br>
+                              <span class="muted">{{ item.asset.get_condition_display }}</span>
+                            </td>
+                            <td>
+                              <strong>{{ item.holder_label }}</strong><br>
+                              <span class="muted">{{ item.allocation_status }}</span>
+                            </td>
+                            <td>
+                              <div class="list-stack">
+                                <a class="button-link secondary" href="{% url 'assets:asset_qr_label' item.asset.id %}">QR Label</a>
+                                {% if asset_workspace_permissions.can_edit %}
+                                  <a class="button-link secondary" href="{% url 'assets:workspace_resource' resource='assets' %}?edit={{ item.asset.id }}&search={{ item.asset.asset_id|urlencode }}">Manage Asset</a>
+                                {% else %}
+                                  <a class="button-link secondary" href="{% url 'assets:workspace_resource' resource='assets' %}?search={{ item.asset.asset_id|urlencode }}">Review Asset</a>
+                                {% endif %}
+                              </div>
+                            </td>
+                          </tr>
+                        {% endfor %}
+                      </tbody>
+                    </table>
+                  </article>
+                {% endfor %}
+              </div>
+            {% else %}
+              <div class="empty-state">
+                <h3>No matching lab assets found</h3>
+                <p>Try a lab room, building, asset ID, barcode, category, or asset name.</p>
+              </div>
+            {% endif %}
+          {% else %}
+            <div class="empty-state">
+              <h3>Search to load lab-held assets</h3>
+              <p>Enter a lab or asset detail above to review the equipment currently held inside your visible labs.</p>
             </div>
           {% endif %}
         </section>

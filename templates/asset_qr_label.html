@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% block title %}QR Label | FASSETS{% endblock %}
+{% block content %}
+<section class="page-card">
+  <style>
+    .qr-label-shell {
+      display: grid;
+      gap: 20px;
+      justify-items: center;
+    }
+
+    .qr-label-card {
+      width: min(100%, 520px);
+      display: grid;
+      gap: 18px;
+      padding: 24px;
+      border-radius: 28px;
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(244, 248, 250, 0.96));
+      box-shadow: 0 24px 40px rgba(15, 23, 42, 0.08);
+    }
+
+    .qr-label-main {
+      display: grid;
+      gap: 22px;
+      grid-template-columns: minmax(180px, 220px) minmax(0, 1fr);
+      align-items: center;
+    }
+
+    .qr-label-header,
+    .qr-label-card p,
+    .qr-label-card h1,
+    .qr-label-card h2 {
+      margin: 0;
+    }
+
+    .qr-label-code {
+      width: min(100%, 280px);
+      aspect-ratio: 1;
+      justify-self: center;
+      padding: 16px;
+      border-radius: 22px;
+      background: #fff;
+      border: 1px solid rgba(148, 163, 184, 0.22);
+    }
+
+    .qr-label-details {
+      display: grid;
+      gap: 14px;
+      align-content: start;
+    }
+
+    .qr-label-detail {
+      display: grid;
+      gap: 4px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      box-shadow: none;
+      border-radius: 0;
+    }
+
+    .qr-label-detail strong,
+    .qr-label-detail span {
+      margin: 0;
+    }
+
+    .qr-label-detail strong {
+      font-size: 0.98rem;
+      color: #2b2317;
+    }
+
+    .qr-label-detail span {
+      color: var(--muted);
+      line-height: 1.45;
+      word-break: break-word;
+    }
+
+    @media (max-width: 760px) {
+      .qr-label-main {
+        grid-template-columns: 1fr;
+        justify-items: center;
+      }
+
+      .qr-label-details {
+        width: 100%;
+      }
+    }
+
+    @media print {
+      .topbar,
+      .message-stack,
+      .qr-label-actions {
+        display: none !important;
+      }
+
+      .page-card {
+        padding: 0;
+        background: #fff;
+        box-shadow: none;
+      }
+
+      .qr-label-card {
+        box-shadow: none;
+        border-color: rgba(15, 23, 42, 0.12);
+      }
+    }
+  </style>
+
+  <div class="section qr-label-shell">
+    <div class="qr-label-card">
+      <div class="qr-label-header">
+        <p class="eyebrow">FASSETS Asset Label</p>
+        <h1>{{ tracked_asset.asset_id }}</h1>
+        <p>{{ tracked_asset.name }}</p>
+      </div>
+
+      <div class="inline-meta">
+        <span class="status {{ tracked_asset.status }}">{{ tracked_asset.get_status_display }}</span>
+        <span class="status">{{ tracked_asset.get_condition_display }}</span>
+        <span class="chip">{{ tracked_asset.category.name }}</span>
+      </div>
+
+      <div class="qr-label-main">
+        <img class="qr-label-code" src="{% url 'assets:asset_qr_image' tracked_asset.id %}" alt="QR label for {{ tracked_asset.asset_id }}">
+
+        <div class="qr-label-details">
+          <div class="qr-label-detail">
+            <strong>Department</strong>
+            <span>{{ tracked_asset.current_location.department.name }}</span>
+          </div>
+          <div class="qr-label-detail">
+            <strong>Location</strong>
+            <span>{{ tracked_asset.current_location.short_label }}</span>
+          </div>
+          <div class="qr-label-detail">
+            <strong>Tracking Code</strong>
+            <span>{{ tracked_asset.asset_id }}</span>
+          </div>
+          <div class="qr-label-detail">
+            <strong>Barcode</strong>
+            <span>{{ tracked_asset.barcode|default:"-" }}</span>
+          </div>
+        </div>
+      </div>
+
+      <p class="muted">Scan this label into the QR Tracking page or enter the code manually to confirm the asset state, current location, and related operational context.</p>
+    </div>
+
+    <div class="inline-meta qr-label-actions">
+      <button type="button" class="button-link secondary" onclick="window.print()">Print Label</button>
+      <a class="button-link secondary" href="{{ tracked_asset_tracker_url }}">Open Tracker</a>
+      <a class="button-link secondary" href="{% url 'assets:dashboard' %}#department-assets">Back To Dashboard</a>
+    </div>
+  </div>
+</section>
+{% endblock %}
